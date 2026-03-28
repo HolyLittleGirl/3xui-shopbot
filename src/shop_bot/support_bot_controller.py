@@ -45,10 +45,13 @@ class SupportBotController:
             self._dp = None
 
     def start(self):
+        logger.info(f"SupportBotController.start() вызван. _is_running={self._is_running}, _loop={self._loop is not None}")
+        
         if self._is_running:
             return {"status": "error", "message": "Support-бот уже запущен."}
 
         if not self._loop or not self._loop.is_running():
+            logger.error(f"Support-бот: цикл событий не установлен. _loop={self._loop}")
             return {"status": "error", "message": "Критическая ошибка: цикл событий не установлен."}
 
         token = database.get_setting("support_bot_token")
@@ -88,13 +91,18 @@ class SupportBotController:
             return {"status": "error", "message": f"Ошибка при запуске support-бота: {e}"}
 
     def stop(self):
-        if not self._is_running:
+        logger.info(f"SupportBotController.stop() вызван. _is_running={self._is_running}, _loop={self._loop is not None}, _dp={self._dp is not None}")
+
+        # Сначала проверяем наличие dispatcher - это главный индикатор запущенного бота
+        if not self._dp:
+            logger.error("Support-бот: _dp отсутствует (бот не запущен или уже остановлен)")
             return {"status": "error", "message": "Support-бот не запущен."}
 
-        if not self._loop or not self._dp:
-            return {"status": "error", "message": "Критическая ошибка: компоненты бота недоступны."}
+        if not self._loop:
+            logger.error(f"Support-бот: _loop отсутствует")
+            return {"status": "error", "message": "Критическая ошибка: цикл событий недоступен."}
 
-        logger.info("Отправляю сигнал на корректную остановку...")
+        logger.info("Support-бот: отправляю сигнал на корректную остановку...")
         asyncio.run_coroutine_threadsafe(self._dp.stop_polling(), self._loop)
         return {"status": "success", "message": "Команда на остановку support-бота отправлена."}
 

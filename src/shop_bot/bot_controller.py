@@ -132,15 +132,15 @@ class BotController:
             return {"status": "error", "message": f"Ошибка при запуске: {e}"}
 
     def stop(self):
-        if not self._is_running:
+        if not self._dp:
             return {"status": "error", "message": "Бот не запущен."}
 
-        if not self._loop or not self._dp:
-            return {"status": "error", "message": "Критическая ошибка: компоненты бота недоступны."}
+        if not self._loop:
+            return {"status": "error", "message": "Критическая ошибка: цикл событий недоступен."}
 
         logger.info("Отправляю сигнал на корректную остановку...")
         asyncio.run_coroutine_threadsafe(self._dp.stop_polling(), self._loop)
-        
+
         return {"status": "success", "message": "Команда на остановку бота отправлена."}
 
     def get_status(self):
