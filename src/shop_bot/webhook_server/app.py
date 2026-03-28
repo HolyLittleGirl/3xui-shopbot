@@ -1233,6 +1233,11 @@ def create_webhook_app(bot_controller_instance):
     @flask_app.route('/stop-both-bots', methods=['POST'])
     @login_required
     def stop_both_bots_route():
+        # Устанавливаем цикл событий для support-бота если не был установлен
+        loop = current_app.config.get('EVENT_LOOP')
+        if loop and loop.is_running():
+            _support_bot_controller.set_loop(loop)
+        
         main_result = _bot_controller.stop()
         support_result = _support_bot_controller.stop()
 
