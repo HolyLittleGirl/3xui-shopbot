@@ -109,6 +109,10 @@
                   <button type="submit" class="btn btn-warning btn-sm btn-glass" title="Бан" aria-label="Бан"><i class="ti ti-ban"></i></button>
                 </form>
                 {% endif %}
+                <form action="{{ url_for('delete_user_route', user_id=user.telegram_id) }}" method="post" data-confirm="⚠️ ВНИМАНИЕ! Это действие УДАЛИТ пользователя и ВСЕ его ключи безвозвратно. Вы уверены?" data-ajax="delete" data-refresh-target="users-tbody" data-action="delete-user">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <button type="submit" class="btn btn-danger btn-sm btn-glass" title="Удалить пользователя" aria-label="Удалить пользователя"><i class="ti ti-user-x"></i></button>
+                </form>
                 {% if user.user_keys %}
                 <form action="{{ url_for('revoke_keys_route', user_id=user.telegram_id) }}" method="post" data-confirm="ВНИМАНИЕ! Это действие удалит ВСЕ ключи пользователя с серверов. Вы уверены?" data-ajax="delete" data-refresh-target="users-tbody" data-action="revoke-keys">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />

@@ -1649,6 +1649,19 @@ def delete_user_keys(user_id: int):
     except sqlite3.Error as e:
         logging.error(f"Failed to delete keys for user {user_id}: {e}")
 
+def delete_user(telegram_id: int):
+    """Полное удаление пользователя из БД (предварительно ключи должны быть удалены)."""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            # Сначала удаляем все ключи (на случай если не было вызвано delete_user_keys)
+            cursor.execute("DELETE FROM vpn_keys WHERE user_id = ?", (telegram_id,))
+            # Удаляем пользователя
+            cursor.execute("DELETE FROM users WHERE telegram_id = ?", (telegram_id,))
+            conn.commit()
+    except sqlite3.Error as e:
+        logging.error(f"Failed to delete user {telegram_id}: {e}")
+
 def create_support_ticket(user_id: int, subject: str | None = None) -> int | None:
     try:
         with get_db_connection() as conn:

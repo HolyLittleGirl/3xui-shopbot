@@ -31,7 +31,7 @@ from shop_bot.data_manager.database import (
     create_host, delete_host, create_plan, delete_plan, update_plan, get_user_count,
     get_total_keys_count, get_total_spent_sum, get_daily_stats_for_charts,
     get_recent_transactions, get_paginated_transactions, get_all_users, get_user_keys,
-    ban_user, unban_user, delete_user_keys, get_setting, find_and_complete_ton_transaction,
+    ban_user, unban_user, delete_user_keys, delete_user, get_setting, find_and_complete_ton_transaction,
     get_tickets_paginated, get_open_tickets_count, get_ticket, get_ticket_messages,
     add_support_message, set_ticket_status, delete_ticket,
     get_closed_tickets_count, get_all_tickets_count, update_host_subscription_url,
@@ -1335,6 +1335,45 @@ def create_webhook_app(bot_controller_instance):
                     asyncio.run(bot.send_message(chat_id=user_id, text=text, reply_markup=kb.as_markup()))
         except Exception as e:
             logger.warning(f"Не удалось отправить уведомление о разбане пользователю {user_id}: {e}")
+        return redirect(url_for('users_page'))
+
+    @flask_app.route('/users/delete/<int:user_id>', methods=['POST'])
+    @login_required
+    def delete_user_route(user_id):
+        """Полное удаление пользователя и всех его ключей из БД."""
+        try:
+            # Сначала удаляем все ключи пользователя
+            keys_to_delete = get_user_keys(user_id)
+            for key in keys_to_delete:
+                try:
+                    # Пытаемся удалить ключ с панели (не критично если не получится)
+                    key_host = key.get('host_name')
+                    key_email = key.get('key_email')
+                    if key_host and key_email:
+                        try:
+                            # Запускаем async функцию в event loop
+                            loop = current_app.config.get('EVENT_LOOP')
+                            if loop and loop.is_running():
+                                asyncio.run_coroutine_threadsafe(
+                                    xui_api.delete_client_on_host(key_host, key_email),
+                                    loop
+                                ).result(timeout=10)
+                            else:
+                                asyncio.run(xui_api.delete_client_on_host(key_host, key_email))
+                        except Exception as e:
+                            logger.warning(f"Не удалось удалить ключ {key_email} с хоста {key_host}: {e}")
+                    delete_key_by_id(key['key_id'])
+                except Exception as e:
+                    logger.error(f"Ошибка при удалении ключа {key.get('key_id')}: {e}")
+            
+            # Теперь удаляем самого пользователя
+            delete_user(user_id)
+            
+            flash(f'Пользователь {user_id} и все его ключи ({len(keys_to_delete)} шт.) были удалены.', 'success')
+        except Exception as e:
+            logger.error(f"Ошибка при удалении пользователя {user_id}: {e}", exc_info=True)
+            flash(f'Ошибка при удалении пользователя: {e}', 'danger')
+        
         return redirect(url_for('users_page'))
 
     @flask_app.route('/users/revoke/<int:user_id>', methods=['POST'])
