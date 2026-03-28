@@ -15,6 +15,7 @@ from shop_bot.webhook_server.app import create_webhook_app
 from shop_bot.data_manager.scheduler import periodic_subscription_check
 from shop_bot.data_manager import database
 from shop_bot.bot_controller import BotController
+from shop_bot.support_bot_controller import SupportBotController
 
 def main():
     if colorama_available:
@@ -105,6 +106,7 @@ def main():
     logger.info("Проверка инициализации базы данных завершена.")
 
     bot_controller = BotController()
+    support_bot_controller = SupportBotController()
     flask_app = create_webhook_app(bot_controller)
     
     # Проверка автозапуска бота (из БД или переменной окружения)
@@ -119,6 +121,9 @@ def main():
         logger.info(f"Получен сигнал: {sig.name}. Запускаю завершение работы...")
         if bot_controller.get_status()["is_running"]:
             bot_controller.stop()
+            await asyncio.sleep(2)
+        if support_bot_controller.get_status()["is_running"]:
+            support_bot_controller.stop()
             await asyncio.sleep(2)
         tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
         if tasks:
@@ -142,14 +147,24 @@ def main():
 
         logger.info("Flask-сервер запущен: http://0.0.0.0:1488")
 
-        # Автозапуск бота если включено
+        # Автозапуск обоих ботов если включено
         if auto_start:
             await asyncio.sleep(2)  # Ждём пока Flask запустится
+            
+            # Запуск основного бота
             result = bot_controller.start()
             if result.get("status") == "success":
-                logger.info("Бот автоматически запущен (AUTO_START_BOT=true)")
+                logger.info("✅ Основной бот автоматически запущен (AUTO_START_BOT=true)")
             else:
-                logger.warning(f"Не удалось автозапустить бота: {result.get('message')}")
+                logger.warning(f"❌ Не удалось автозапустить основной бот: {result.get('message')}")
+            
+            # Запуск support-бота
+            support_bot_controller.set_loop(loop)
+            support_result = support_bot_controller.start()
+            if support_result.get("status") == "success":
+                logger.info("✅ Support-бот автоматически запущен (AUTO_START_BOT=true)")
+            else:
+                logger.warning(f"❌ Не удалось автозапустить support-бот: {support_result.get('message')}")
         else:
             logger.info("Приложение запущено. Бота можно стартовать из веб-панели.")
 
