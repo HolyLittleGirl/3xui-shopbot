@@ -60,7 +60,9 @@ ALL_SETTINGS_KEYS = [
     # UI
     "panel_brand_title",
     # Backups
-    "backup_interval_days"
+    "backup_interval_days",
+    # Production mode
+    "auto_start_bot"
 ]
 
 def create_webhook_app(bot_controller_instance):

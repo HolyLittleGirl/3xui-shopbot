@@ -107,8 +107,11 @@ def main():
     bot_controller = BotController()
     flask_app = create_webhook_app(bot_controller)
     
-    # Проверка автозапуска бота
-    auto_start = os.getenv("AUTO_START_BOT", "").lower() == "true"
+    # Проверка автозапуска бота (из БД или переменной окружения)
+    auto_start_db = database.get_setting("auto_start_bot") or "false"
+    auto_start_env = os.getenv("AUTO_START_BOT", "").lower() == "true"
+    auto_start = auto_start_db.lower() == "true" or auto_start_env
+    
     if auto_start:
         logger.info("AUTO_START_BOT=true — попытка автозапуска бота...")
     

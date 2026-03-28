@@ -191,6 +191,8 @@ def initialize_db():
                 "referral_on_start_referrer_amount": "20",
                 # Backups
                 "backup_interval_days": "1",
+                # Production mode
+                "auto_start_bot": "false",
             }
             run_migration()
             for key, value in default_settings.items():

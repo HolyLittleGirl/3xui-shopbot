@@ -443,6 +443,13 @@
 								required
 							/>
 						</div>
+						<div class="form-group">
+							<label class="form-check-label">
+								<input type="checkbox" name="auto_start_bot" value="true" {% if settings.auto_start_bot == 'true' %}checked{% endif %} class="form-check-input" />
+								🚀 Production режим (автозапуск бота)
+							</label>
+							<div class="form-text">При включении бот запускается автоматически при старте контейнера. В выключенном режиме бот запускается вручную через веб-панель.</div>
+						</div>
 					</div>
 				</div>
 			</section>
