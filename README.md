@@ -8,7 +8,7 @@
 - Веб‑панель управления: сервера, тарифы, пользователи, платежи, логи
 - Мульти‑хост: любое число серверов 3x‑ui, централизованное управление
 - Гибкие тарифы: настройка месяцев и цены для каждого хоста
-- Платежи: YooKassa, CryptoBot, Heleket, TON Connect, **Telegram Stars**
+- Платежи: YooKassa, CryptoBot, Heleket, TON Connect, Telegram Stars
 - Принудительная подписка на канал (опционально)
 - Тестовый период (trial)
 - Реферальная система (несколько типов начислений)
@@ -34,7 +34,7 @@
 2. Выполните команду установки:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/HolyLittleGirl/3xui-shopbot/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/HolyLittleGirl/3xui-shopbot-stars/main/install.sh | sudo bash
 ```
 
 3. Следуйте инструкциям установщика:
@@ -230,7 +230,7 @@ docker-compose up -d
 ### Обновление бота
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/HolyLittleGirl/3xui-shopbot/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/HolyLittleGirl/3xui-shopbot-stars/main/install.sh | sudo bash
 docker-compose down && docker-compose up
 ```
 
