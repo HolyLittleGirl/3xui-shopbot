@@ -873,16 +873,14 @@ def create_webhook_app(bot_controller_instance):
     @flask_app.route('/terms')
     def terms_page():
         """Public page with Terms of Service."""
-        from datetime import datetime
         common_data = get_common_template_data()
-        return render_template('terms.html', now=datetime.now(), **common_data)
+        return render_template('terms.html', **common_data)
 
     @flask_app.route('/privacy')
     def privacy_page():
         """Public page with Privacy Policy."""
-        from datetime import datetime
         common_data = get_common_template_data()
-        return render_template('privacy.html', now=datetime.now(), **common_data)
+        return render_template('privacy.html', **common_data)
 
     @flask_app.route('/support/<int:ticket_id>', methods=['GET', 'POST'])
     @login_required
