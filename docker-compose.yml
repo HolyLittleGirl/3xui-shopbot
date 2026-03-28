@@ -14,7 +14,7 @@ services:
     container_name: 3xui-shopbot
     environment:
       - SHOPBOT_DB_PATH=/app/project/data/users.db
-      # AUTO_START_BOT=true  # Раскомментируйте для автозапуска бота при старте контейнера
+      - AUTO_START_BOT=true  # Автозапуск бота при старте контейнера
 
 volumes:
   shopbot-db:
