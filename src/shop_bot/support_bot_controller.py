@@ -39,16 +39,13 @@ class SupportBotController:
             logger.info("Опрос корректно остановлен.")
             self._is_running = False
             self._task = None
-            if self._bot:
-                await self._bot.close()
-            self._bot = None
-            self._dp = None
 
     def start(self):
-        logger.info(f"SupportBotController.start() вызван. _is_running={self._is_running}, _loop={self._loop is not None}")
-        
-        if self._is_running:
-            return {"status": "error", "message": "Support-бот уже запущен."}
+        logger.info(f"SupportBotController.start() вызван. _is_running={self._is_running}, _loop={self._loop is not None}, _dp={self._dp is not None}")
+
+        # Проверяем по _dp - если он не None, значит бот ещё работает или останавливается
+        if self._dp:
+            return {"status": "error", "message": "Support-бот уже запущен или останавливается."}
 
         if not self._loop or not self._loop.is_running():
             logger.error(f"Support-бот: цикл событий не установлен. _loop={self._loop}")
@@ -93,18 +90,34 @@ class SupportBotController:
     def stop(self):
         logger.info(f"SupportBotController.stop() вызван. _is_running={self._is_running}, _loop={self._loop is not None}, _dp={self._dp is not None}")
 
-        # Сначала проверяем наличие dispatcher - это главный индикатор запущенного бота
         if not self._dp:
             logger.error("Support-бот: _dp отсутствует (бот не запущен или уже остановлен)")
             return {"status": "error", "message": "Support-бот не запущен."}
 
         if not self._loop:
-            logger.error(f"Support-бот: _loop отсутствует")
+            logger.error("Support-бот: _loop отсутствует")
             return {"status": "error", "message": "Критическая ошибка: цикл событий недоступен."}
 
         logger.info("Support-бот: отправляю сигнал на корректную остановку...")
-        asyncio.run_coroutine_threadsafe(self._dp.stop_polling(), self._loop)
-        return {"status": "success", "message": "Команда на остановку support-бота отправлена."}
+        future = asyncio.run_coroutine_threadsafe(self._dp.stop_polling(), self._loop)
+        # Ждём завершения polling (таймаут 10 сек)
+        try:
+            future.result(timeout=10)
+        except asyncio.TimeoutError:
+            logger.error("Support-бот: таймаут остановки polling")
+        except Exception as e:
+            logger.error(f"Support-бот: ошибка при остановке: {e}")
+
+        # Гарантированно очищаем ресурсы
+        self._is_running = False
+        self._task = None
+        self._dp = None
+        if self._bot:
+            asyncio.run_coroutine_threadsafe(self._bot.close(), self._loop)
+            self._bot = None
+
+        logger.info("Support-бот: остановлен.")
+        return {"status": "success", "message": "Support-бот остановлен."}
 
     def get_status(self):
         return {"is_running": self._is_running}

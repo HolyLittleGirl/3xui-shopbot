@@ -42,14 +42,13 @@ class BotController:
             logger.info("Опрос корректно остановлен.")
             self._is_running = False
             self._task = None
-            if self._bot:
-                await self._bot.close()
-            self._bot = None
-            self._dp = None
 
     def start(self):
-        if self._is_running:
-            return {"status": "error", "message": "Бот уже запущен."}
+        logger.info(f"BotController.start() вызван. _is_running={self._is_running}, _loop={self._loop is not None}, _dp={self._dp is not None}")
+
+        # Проверяем по _dp - если он не None, значит бот ещё работает или останавливается
+        if self._dp:
+            return {"status": "error", "message": "Бот уже запущен или останавливается."}
 
         if not self._loop or not self._loop.is_running():
             return {"status": "error", "message": "Критическая ошибка: цикл событий не установлен."}
@@ -139,9 +138,25 @@ class BotController:
             return {"status": "error", "message": "Критическая ошибка: цикл событий недоступен."}
 
         logger.info("Отправляю сигнал на корректную остановку...")
-        asyncio.run_coroutine_threadsafe(self._dp.stop_polling(), self._loop)
+        future = asyncio.run_coroutine_threadsafe(self._dp.stop_polling(), self._loop)
+        # Ждём завершения polling (таймаут 10 сек)
+        try:
+            future.result(timeout=10)
+        except asyncio.TimeoutError:
+            logger.error("Бот: таймаут остановки polling")
+        except Exception as e:
+            logger.error(f"Бот: ошибка при остановке: {e}")
 
-        return {"status": "success", "message": "Команда на остановку бота отправлена."}
+        # Гарантированно очищаем ресурсы
+        self._is_running = False
+        self._task = None
+        self._dp = None
+        if self._bot:
+            asyncio.run_coroutine_threadsafe(self._bot.close(), self._loop)
+            self._bot = None
+
+        logger.info("Бот: остановлен.")
+        return {"status": "success", "message": "Бот остановлен."}
 
     def get_status(self):
         return {"is_running": self._is_running}
