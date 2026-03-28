@@ -50,6 +50,7 @@ from shop_bot.data_manager.database import (
     get_referral_balance,
     is_admin,
     set_referral_start_bonus_received,
+    get_host,
 )
 
 from shop_bot.config import (
@@ -89,6 +90,77 @@ class SupportDialog(StatesGroup):
 def is_valid_email(email: str) -> bool:
     pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     return re.match(pattern, email) is not None
+
+async def _create_heleket_payment_request(
+    user_id: int,
+    price: float,
+    months: int,
+    host_name: str,
+    state_data: dict
+) -> str | None:
+    """Create a Heleket payment request and return the payment URL."""
+    try:
+        merchant_id = get_setting("heleket_merchant_id")
+        api_key = get_setting("heleket_api_key")
+        domain = get_setting("domain")
+        
+        if not merchant_id or not api_key or not domain:
+            logger.error("Heleket payment failed: missing merchant_id, api_key, or domain")
+            return None
+        
+        # Prepare metadata
+        metadata = {
+            "user_id": user_id,
+            "price": price,
+            "months": months,
+            "host_name": host_name,
+            "action": state_data.get("action", "purchase"),
+            "customer_email": state_data.get("customer_email"),
+            "plan_id": state_data.get("plan_id"),
+            "key_id": state_data.get("key_id"),
+        }
+        
+        # Heleket API endpoint
+        api_url = "https://api.heleket.com/v1/payment"
+        
+        # Prepare request payload
+        payload = {
+            "merchantId": merchant_id,
+            "amount": price,
+            "currency": "RUB",
+            "description": json.dumps(metadata),
+            "returnUrl": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
+        }
+        
+        # Generate signature
+        sorted_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        base64_encoded = base64.b64encode(sorted_payload.encode()).decode()
+        raw_string = f"{base64_encoded}{api_key}"
+        sign = hashlib.md5(raw_string.encode()).hexdigest()
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {sign}",
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(api_url, json=payload, headers=headers) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    payment_url = result.get("paymentUrl")
+                    if payment_url:
+                        logger.info(f"Heleket payment created for user {user_id}, amount: {price} RUB")
+                        return payment_url
+                    else:
+                        logger.error(f"Heleket API returned no paymentUrl: {result}")
+                        return None
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Heleket API error: {response.status} - {error_text}")
+                    return None
+    except Exception as e:
+        logger.error(f"Failed to create Heleket payment request: {e}", exc_info=True)
+        return None
 
 async def show_main_menu(message: types.Message, edit_message: bool = False):
     user_id = message.chat.id

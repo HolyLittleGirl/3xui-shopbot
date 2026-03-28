@@ -181,40 +181,106 @@ async def ssh_speedtest_for_host(host_row: dict) -> dict:
         return result
 
     def _run_ssh() -> dict:
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        if ssh_key_path:
-            pkey = None
-            try:
-                pkey = paramiko.RSAKey.from_private_key_file(ssh_key_path)
-            except Exception:
+        ssh = None
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+            # Connect with better error handling
+            if ssh_key_path:
+                pkey = None
                 try:
-                    pkey = paramiko.Ed25519Key.from_private_key_file(ssh_key_path)
+                    pkey = paramiko.RSAKey.from_private_key_file(ssh_key_path)
                 except Exception:
-                    pkey = None
-            ssh.connect(ssh_host, port=ssh_port, username=ssh_user, password=ssh_password, pkey=pkey, timeout=20)
-        else:
-            ssh.connect(ssh_host, port=ssh_port, username=ssh_user, password=ssh_password, timeout=20)
+                    try:
+                        pkey = paramiko.Ed25519Key.from_private_key_file(ssh_key_path)
+                    except Exception:
+                        pkey = None
+                ssh.connect(
+                    ssh_host, 
+                    port=ssh_port, 
+                    username=ssh_user, 
+                    password=ssh_password, 
+                    pkey=pkey, 
+                    timeout=20,
+                    allow_agent=False,
+                    look_for_keys=False,
+                    banner_timeout=30
+                )
+            else:
+                ssh.connect(
+                    ssh_host, 
+                    port=ssh_port, 
+                    username=ssh_user, 
+                    password=ssh_password, 
+                    timeout=20,
+                    allow_agent=False,
+                    look_for_keys=False,
+                    banner_timeout=30
+                )
 
-        # Prefer Ookla CLI json format
-        data, err = _ssh_exec_json(ssh, [
-            # Ookla CLI with auto-accept (new flags)
-            'speedtest --accept-license --accept-gdpr -f json',
-            'speedtest --accept-license --accept-gdpr --format=json',
-            # Fallbacks without flags (на случай старых версий, уже принявших лицензию)
-            'speedtest -f json',
-            'speedtest --format=json',
-            # Python speedtest-cli (sivel)
-            'speedtest-cli --json'
-        ])
-        ssh.close()
-        if data:
-            parsed = _parse_ookla_json(data)
-            if not parsed.get('download_mbps') and 'download' in data:
-                # maybe speedtest-cli output
-                parsed = _parse_speedtest_cli_json(data)
-            return {'ok': True, **parsed}
-        return {'ok': False, 'error': err or 'unknown'}
+            # Try speedtest commands in order of preference
+            commands_to_try = [
+                'speedtest --accept-license --accept-gdpr -f json',
+                'speedtest --accept-license --accept-gdpr --format=json',
+                'speedtest -f json',
+                'speedtest --format=json',
+                'speedtest-cli --json',
+            ]
+            
+            data, err = _ssh_exec_json(ssh, commands_to_try)
+            
+            if data:
+                parsed = _parse_ookla_json(data)
+                if not parsed.get('download_mbps') and 'download' in data:
+                    # maybe speedtest-cli output
+                    parsed = _parse_speedtest_cli_json(data)
+                if parsed.get('download_mbps'):
+                    return {'ok': True, **parsed}
+                return {'ok': False, 'error': 'Failed to parse speedtest results'}
+            
+            # If no speedtest binary found, try to install it
+            if err or 'No JSON output' in str(err):
+                logger.info(f"Speedtest binary not found on {ssh_host}, attempting auto-install...")
+                # Try to install Ookla speedtest
+                try:
+                    _ssh_exec(ssh, 'curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash', timeout=60)
+                    _ssh_exec(ssh, 'apt-get update && apt-get install -y speedtest', timeout=120)
+                except Exception:
+                    try:
+                        # Fallback to yum/dnf for RHEL-based systems
+                        _ssh_exec(ssh, 'curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.rpm.sh | bash', timeout=60)
+                        _ssh_exec(ssh, 'yum install -y speedtest', timeout=120)
+                    except Exception:
+                        try:
+                            # Fallback to pip speedtest-cli
+                            _ssh_exec(ssh, 'pip install speedtest-cli || pip3 install speedtest-cli', timeout=60)
+                        except Exception:
+                            pass
+                
+                # Try again after installation
+                data, err = _ssh_exec_json(ssh, commands_to_try)
+                if data:
+                    parsed = _parse_ookla_json(data)
+                    if not parsed.get('download_mbps') and 'download' in data:
+                        parsed = _parse_speedtest_cli_json(data)
+                    if parsed.get('download_mbps'):
+                        return {'ok': True, **parsed}
+            
+            return {'ok': False, 'error': err or 'No speedtest output received'}
+            
+        except paramiko.AuthenticationException as e:
+            return {'ok': False, 'error': f'SSH authentication failed: {e}'}
+        except paramiko.SSHException as e:
+            return {'ok': False, 'error': f'SSH error: {e}'}
+        except Exception as e:
+            return {'ok': False, 'error': f'Connection error: {e}'}
+        finally:
+            if ssh:
+                try:
+                    ssh.close()
+                except Exception:
+                    pass
 
     try:
         loop = asyncio.get_event_loop()
