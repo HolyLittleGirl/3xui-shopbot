@@ -142,6 +142,7 @@ def create_webhook_app(bot_controller_instance):
         return redirect(url_for('login_page'))
 
     def get_common_template_data():
+        from datetime import datetime
         bot_status = _bot_controller.get_status()
         support_bot_status = _support_bot_controller.get_status()
         settings = get_all_settings()
@@ -166,6 +167,7 @@ def create_webhook_app(bot_controller_instance):
             "closed_tickets_count": closed_tickets_count,
             "all_tickets_count": all_tickets_count,
             "brand_title": settings.get('panel_brand_title') or 'T‑Shift VPN',
+            "now": datetime.now(),
         }
 
     @flask_app.route('/brand-title', methods=['POST'])
@@ -867,6 +869,20 @@ def create_webhook_app(bot_controller_instance):
             all_count=all_count,
             **common_data
         )
+
+    @flask_app.route('/terms')
+    def terms_page():
+        """Public page with Terms of Service."""
+        from datetime import datetime
+        common_data = get_common_template_data()
+        return render_template('terms.html', now=datetime.now(), **common_data)
+
+    @flask_app.route('/privacy')
+    def privacy_page():
+        """Public page with Privacy Policy."""
+        from datetime import datetime
+        common_data = get_common_template_data()
+        return render_template('privacy.html', now=datetime.now(), **common_data)
 
     @flask_app.route('/support/<int:ticket_id>', methods=['GET', 'POST'])
     @login_required

@@ -226,5 +226,23 @@
                 saveBtn.addEventListener('click', save);
             })();
         </script>
+
+        <!-- Footer with legal links -->
+        <footer class="mt-5 py-4 text-center text-secondary small">
+            <div class="container">
+                <p class="mb-2">
+                    <a href="{{ url_for('terms_page') }}" class="text-secondary text-decoration-none mx-2">
+                        <i class="ti ti-file-text me-1"></i>Условия использования
+                    </a>
+                    <span class="text-secondary opacity-25">|</span>
+                    <a href="{{ url_for('privacy_page') }}" class="text-secondary text-decoration-none mx-2">
+                        <i class="ti ti-shield-lock me-1"></i>Политика конфиденциальности
+                    </a>
+                </p>
+                <p class="mb-0 text-secondary opacity-75">
+                    © {{ now.year if now else '2026' }} VPN Service. Все права защищены.
+                </p>
+            </div>
+        </footer>
     </body>
 </html>

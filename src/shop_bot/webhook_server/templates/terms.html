@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Условия использования{% endblock %}
+
+{% block content %}
+<div class="page-header d-print-none">
+    <div class="row align-items-center">
+        <div class="col">
+            <h2 class="page-title">Условия использования</h2>
+            <div class="text-secondary">Правила использования VPN-сервиса</div>
+        </div>
+    </div>
+</div>
+
+<div class="card glass">
+    <div class="card-body">
+        <div class="legal-content">
+            <h3>🔐 Назначение сервиса</h3>
+            <p>
+                Наш сервис предоставляет защищённое соединение для повышения безопасности и конфиденциальности в сети.
+            </p>
+
+            <h4>Подходит для:</h4>
+            <ul class="legal-list">
+                <li>
+                    <span class="emoji">🌐</span>
+                    <span>Стабильного доступа к онлайн-сервисам, зарубежным инструментам ИИ и другим платформам</span>
+                </li>
+                <li>
+                    <span class="emoji">📶</span>
+                    <span>Защиты данных в публичных Wi-Fi сетях</span>
+                </li>
+                <li>
+                    <span class="emoji">🛡️</span>
+                    <span>Предотвращения перехвата трафика</span>
+                </li>
+            </ul>
+
+            <p class="highlight">
+                Наш VPN обеспечивает корректную работу сервисов, которые могут быть ограничены по географии, 
+                при этом оставаясь инструментом защиты соединения.
+            </p>
+
+            <h3>⚖️ Правовая информация</h3>
+            <p>
+                Сервис работает в рамках законодательства РФ и не предназначен для противоправного использования.
+            </p>
+
+            <div class="alert alert-warning" role="alert">
+                <i class="ti ti-alert-triangle me-2"></i>
+                <strong>Важно:</strong> Пользователь самостоятельно отвечает за соблюдение закона. 
+                Рекомендуется использовать VPN только в законных целях.
+            </div>
+
+            <h3>📋 Основные положения</h3>
+            <ol class="legal-list">
+                <li>
+                    <strong>Регистрация и доступ</strong>
+                    <p>Используя сервис, вы подтверждаете, что достигли возраста 18 лет и принимаете данные условия.</p>
+                </li>
+                <li>
+                    <strong>Оплата и возврат</strong>
+                    <p>Оплата услуг производится в соответствии с выбранным тарифом. Возврат средств возможен в случаях, 
+                    предусмотренных законодательством РФ.</p>
+                </li>
+                <li>
+                    <strong>Конфиденциальность</strong>
+                    <p>Мы не ведём логи вашей активности. Политика конфиденциальности описывает, какие данные мы собираем 
+                    и как их используем.</p>
+                </li>
+                <li>
+                    <strong>Ограничения использования</strong>
+                    <p>Запрещается использование сервиса для:</p>
+                    <ul>
+                        <li>Распространения запрещённых материалов</li>
+                        <li>Осуществления кибератак</li>
+                        <li>Обхода блокировок ресурсов, признанных экстремистскими</li>
+                        <li>Любой деятельности, нарушающей законодательство РФ</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>Техническая поддержка</strong>
+                    <p>Поддержка доступна через Telegram-бот в разделе «Помощь».</p>
+                </li>
+                <li>
+                    <strong>Изменение условий</strong>
+                    <p>Администрация оставляет за собой право изменять условия использования с публикацией новой версии 
+                    в боте и веб-панели.</p>
+                </li>
+            </ol>
+
+            <h3>📞 Контакты</h3>
+            <p>
+                По вопросам, связанным с условиями использования, обращайтесь в службу поддержки через Telegram-бот.
+            </p>
+
+            <p class="text-secondary small mt-4">
+                Последнее обновление: {{ now.strftime('%d.%m.%Y') if now else '28.03.2026' }}
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .legal-content h3 {
+        color: var(--tblr-primary);
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        font-size: 1.25rem;
+    }
+    .legal-content h4 {
+        color: var(--tblr-body-color);
+        margin-top: 1rem;
+        font-size: 1.1rem;
+    }
+    .legal-content h3:first-child {
+        margin-top: 0;
+    }
+    .legal-content p {
+        line-height: 1.7;
+        margin-bottom: 1rem;
+    }
+    .legal-list {
+        list-style: none;
+        padding-left: 0;
+    }
+    .legal-list > li {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .legal-list > li:last-child {
+        border-bottom: none;
+    }
+    .legal-list .emoji {
+        margin-right: 0.5rem;
+    }
+    .legal-list ul {
+        margin-top: 0.5rem;
+        padding-left: 1.5rem;
+    }
+    .highlight {
+        background: rgba(var(--tblr-primary-rgb), 0.1);
+        border-left: 3px solid var(--tblr-primary);
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 0 4px 4px 0;
+    }
+</style>
+{% endblock %}

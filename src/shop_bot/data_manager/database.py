@@ -193,6 +193,9 @@ def initialize_db():
                 "backup_interval_days": "1",
                 # Production mode
                 "auto_start_bot": "false",
+                # Legal pages (internal URLs by default)
+                "terms_url": "/terms",
+                "privacy_url": "/privacy",
             }
             run_migration()
             for key, value in default_settings.items():
