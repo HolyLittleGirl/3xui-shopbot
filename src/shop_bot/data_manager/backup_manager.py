@@ -4,6 +4,7 @@ import sqlite3
 import zipfile
 from datetime import datetime
 from pathlib import Path
+import os
 
 from aiogram import Bot
 from aiogram.types import FSInputFile
@@ -13,7 +14,9 @@ from . import database
 logger = logging.getLogger(__name__)
 
 # Папка для хранения локальных архивов бэкапов
-BACKUPS_DIR = Path("/app/project/backups")
+# Используем переменную окружения или путь по умолчанию
+DATA_DIR = Path(os.getenv("SHOPBOT_DB_PATH", "/app/project/users.db")).parent
+BACKUPS_DIR = DATA_DIR / "backups"
 BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Имя файла БД см. в database.DB_FILE

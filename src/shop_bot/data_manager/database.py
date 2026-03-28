@@ -4,11 +4,21 @@ import logging
 from pathlib import Path
 import json
 import re
+import os
 
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path("/app/project")
-DB_FILE = PROJECT_ROOT / "users.db"
+
+# Путь к БД из переменной окружения или по умолчанию
+DB_PATH = os.getenv("SHOPBOT_DB_PATH")
+if DB_PATH:
+    DB_FILE = Path(DB_PATH)
+else:
+    DB_FILE = PROJECT_ROOT / "users.db"
+
+# Создаём директорию, если она не существует
+DB_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 def normalize_host_name(name: str | None) -> str:
     """Normalize host name by trimming and removing invisible/unicode spaces.

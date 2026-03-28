@@ -543,6 +543,61 @@ def get_user_router() -> Router:
             await callback.message.edit_text("❌ Не удалось подготовить оплату TON Connect.")
             await state.clear()
 
+    @user_router.callback_query(TopUpProcess.waiting_for_topup_method, F.data == "topup_pay_stars")
+    async def topup_pay_stars_handler(callback: types.CallbackQuery, state: FSMContext):
+        """Создание инвойса Telegram Stars для пополнения баланса."""
+        await callback.answer("Создаю счет в Telegram Stars...")
+        data = await state.get_data()
+        amount_rub = Decimal(str(data.get('topup_amount', 0)))
+        user_id = callback.from_user.id
+
+        if amount_rub <= 0:
+            await callback.message.edit_text("❌ Некорректная сумма пополнения. Повторите ввод.")
+            await state.clear()
+            return
+
+        # Конвертируем рубли в звёзды (1 звезда ≈ 1.25 RUB, минимальное количество — 1 звезда)
+        stars_to_rub_rate = Decimal("1.25")
+        stars_amount = int((amount_rub / stars_to_rub_rate).to_integral_value(rounding=ROUND_HALF_UP))
+        if stars_amount < 1:
+            stars_amount = 1
+
+        # Пересчитываем сумму в рублях на основе количества звёзд (для точности)
+        final_amount_rub = float(stars_amount * stars_to_rub_rate)
+
+        try:
+            bot_info = await callback.bot.get_me()
+            bot_name = bot_info.first_name
+
+            # Создаём инвойс Telegram Stars
+            await callback.message.answer_invoice(
+                title=bot_name,
+                description=f"Пополнение баланса на {final_amount_rub:.2f} RUB",
+                payload=f"stars_topup:{user_id}:{final_amount_rub}",
+                provider_token="",  # Для Stars не нужен
+                currency="XTR",  # Валюта Telegram Stars
+                prices=[LabeledPrice(label="Пополнение баланса", amount=stars_amount)],
+                reply_markup=InlineKeyboardBuilder().row(
+                    InlineKeyboardButton(text=f"⭐ Оплатить {stars_amount} XTR", pay=True)
+                ).row(
+                    InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_topup_amount")
+                ).as_markup()
+            )
+            await callback.message.delete()
+        except Exception as e:
+            logger.error(f"Failed to create Telegram Stars topup invoice: {e}", exc_info=True)
+            await callback.message.edit_text("❌ Не удалось создать счет Telegram Stars. Попробуйте позже.")
+            await state.clear()
+
+    @user_router.callback_query(F.data == "back_to_topup_amount")
+    async def back_to_topup_amount_handler(callback: types.CallbackQuery, state: FSMContext):
+        """Возврат к вводу суммы пополнения."""
+        await callback.answer()
+        await callback.message.edit_text(
+            "Введите сумму пополнения в рублях (например, 300):\nМинимум: 10 RUB, максимум: 100000 RUB",
+        )
+        await state.set_state(TopUpProcess.waiting_for_amount)
+
     @user_router.callback_query(F.data == "show_referral_program")
     @registration_required
     async def referral_program_handler(callback: types.CallbackQuery):
@@ -1771,6 +1826,33 @@ def get_user_router() -> Router:
             }
 
             await process_successful_payment(bot, metadata)
+
+        elif payload.startswith("stars_topup:"):
+            parts = payload.split(":")
+            # stars_topup:{user_id}:{amount_rub}
+            try:
+                user_id = int(parts[1])
+                amount_rub = float(parts[2])
+            except (IndexError, ValueError) as e:
+                logger.error(f"Failed to parse Stars topup payload: {e}, payload: {payload}")
+                await message.answer("❌ Произошла ошибка при обработке платежа.")
+                return
+
+            # Конвертируем звёзды в рубли для учёта
+            stars_to_rub_rate = 1.25
+            price_rub = stars_amount * stars_to_rub_rate
+
+            metadata = {
+                "user_id": user_id,
+                "price": price_rub,
+                "action": "top_up",
+                "payment_method": "Stars",
+                "chat_id": message.chat.id,
+                "message_id": message.message_id
+            }
+
+            await process_successful_payment(bot, metadata)
+
         else:
             # Другие типы платежей (не Stars)
             pass

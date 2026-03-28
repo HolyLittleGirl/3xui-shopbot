@@ -14,6 +14,8 @@ dist/
 
 .env
 *.db
+data/
+backups/
 TODO
 
 .idea/

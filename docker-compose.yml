@@ -5,5 +5,13 @@ services:
     ports:
       - '1488:1488'
     volumes:
+      # Монтируем исходный код проекта
       - .:/app/project
+      # Отдельный том для базы данных (надёжное сохранение)
+      - shopbot-db:/app/project/data
     container_name: 3xui-shopbot
+    environment:
+      - SHOPBOT_DB_PATH=/app/project/data/users.db
+
+volumes:
+  shopbot-db:
