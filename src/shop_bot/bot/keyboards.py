@@ -285,35 +285,51 @@ def create_payment_method_keyboard(
     show_balance: bool | None = None,
     main_balance: float | None = None,
     price: float | None = None,
+    price_stars: int | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
     # Кнопки оплаты с балансов (если разрешено/достаточно средств)
     if show_balance:
         label = "💼 Оплатить с баланса"
-        if main_balance is not None:
+        if main_balance is not None and price is not None:
             try:
-                label += f" ({main_balance:.0f} RUB)"
+                label += f" ({price:.0f} RUB)"
             except Exception:
                 pass
         builder.button(text=label, callback_data="pay_balance")
 
-    # Внешние способы оплаты
+    # Внешние способы оплаты с указанием цены
     if payment_methods and payment_methods.get("yookassa"):
+        btn_text = "🏦 СБП / Банковская карта"
+        if price is not None:
+            btn_text += f" ({price:.0f} RUB)"
         if get_setting("sbp_enabled"):
-            builder.button(text="🏦 СБП / Банковская карта", callback_data="pay_yookassa")
+            builder.button(text=btn_text, callback_data="pay_yookassa")
         else:
-            builder.button(text="🏦 Банковская карта", callback_data="pay_yookassa")
+            builder.button(text=btn_text, callback_data="pay_yookassa")
     if payment_methods and payment_methods.get("heleket"):
-        builder.button(text="💎 Криптовалюта", callback_data="pay_heleket")
+        btn_text = "💎 Криптовалюта"
+        if price is not None:
+            btn_text += f" ({price:.0f} RUB)"
+        builder.button(text=btn_text, callback_data="pay_heleket")
     if payment_methods and payment_methods.get("cryptobot"):
-        builder.button(text="🤖 CryptoBot", callback_data="pay_cryptobot")
+        btn_text = "🤖 CryptoBot"
+        if price is not None:
+            btn_text += f" ({price:.0f} RUB)"
+        builder.button(text=btn_text, callback_data="pay_cryptobot")
     if payment_methods and payment_methods.get("tonconnect"):
+        btn_text = "🪙 TON Connect"
+        if price is not None:
+            btn_text += f" ({price:.0f} RUB)"
         callback_data_ton = "pay_tonconnect"
         logger.info(f"Creating TON button with callback_data: '{callback_data_ton}'")
-        builder.button(text="🪙 TON Connect", callback_data=callback_data_ton)
+        builder.button(text=btn_text, callback_data=callback_data_ton)
     if payment_methods and payment_methods.get("stars"):
-        builder.button(text="⭐ Telegram Stars", callback_data="pay_stars")
+        btn_text = "⭐ Telegram Stars"
+        if price_stars is not None and price_stars > 0:
+            btn_text += f" ({price_stars} ⭐)"
+        builder.button(text=btn_text, callback_data="pay_stars")
 
     builder.button(text="⬅️ Назад", callback_data="back_to_email_prompt")
     builder.adjust(1)

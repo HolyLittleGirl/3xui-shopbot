@@ -24,7 +24,7 @@ from pytonconnect import TonConnect
 from pytonconnect.exceptions import UserRejectsError
 
 from aiogram import Bot, Router, F, types, html
-from aiogram.types import BufferedInputFile, LabeledPrice, PreCheckoutQuery
+from aiogram.types import BufferedInputFile, LabeledPrice, PreCheckoutQuery, InlineKeyboardButton
 from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
@@ -1403,7 +1403,7 @@ def get_user_router() -> Router:
         data = await state.get_data()
         user_data = get_user(message.chat.id)
         plan = get_plan_by_id(data.get('plan_id'))
-        
+
         if not plan:
             try:
                 await message.edit_text("❌ Ошибка: Тариф не найден.")
@@ -1411,7 +1411,7 @@ def get_user_router() -> Router:
                 await message.answer("❌ Ошибка: Тариф не найден.")
             await state.clear()
             return
-        
+
         price = Decimal(str(plan['price']))
         final_price = price
         discount_applied = False
@@ -1420,7 +1420,7 @@ def get_user_router() -> Router:
         if user_data.get('referred_by') and user_data.get('total_spent', 0) == 0:
             discount_percentage_str = get_setting("referral_discount") or "0"
             discount_percentage = Decimal(discount_percentage_str)
-            
+
             if discount_percentage > 0:
                 discount_amount = (price * discount_percentage / 100).quantize(Decimal("0.01"))
                 final_price = price - discount_amount
@@ -1440,6 +1440,7 @@ def get_user_router() -> Router:
             main_balance = 0.0
 
         show_balance_btn = main_balance >= float(final_price)
+        price_stars = plan.get('price_stars', 0)
 
         try:
             await message.edit_text(
@@ -1450,7 +1451,8 @@ def get_user_router() -> Router:
                     key_id=data.get('key_id'),
                     show_balance=show_balance_btn,
                     main_balance=main_balance,
-                    price=float(final_price)
+                    price=float(final_price),
+                    price_stars=price_stars if price_stars > 0 else None
                 )
             )
         except TelegramBadRequest:
@@ -1462,7 +1464,8 @@ def get_user_router() -> Router:
                     key_id=data.get('key_id'),
                     show_balance=show_balance_btn,
                     main_balance=main_balance,
-                    price=float(final_price)
+                    price=float(final_price),
+                    price_stars=price_stars if price_stars > 0 else None
                 )
             )
         await state.set_state(PaymentProcess.waiting_for_payment_method)
@@ -1735,6 +1738,11 @@ def get_user_router() -> Router:
             bot_name = bot_info.first_name
 
             # Создаём инвойс Telegram Stars
+            keyboard = InlineKeyboardBuilder()
+            keyboard.button(text=f"💫 Оплатить ({price_stars} ⭐)", pay=True)
+            keyboard.button(text="⬅️ Назад", callback_data="back_to_email_prompt")
+            keyboard.adjust(1)
+            
             await callback.message.answer_invoice(
                 title=bot_name,
                 description=f"Оплата тарифа «{plan['plan_name']}» ({months} мес.)",
@@ -1742,11 +1750,7 @@ def get_user_router() -> Router:
                 provider_token="",  # Для Stars не нужен
                 currency="XTR",  # Валюта Telegram Stars
                 prices=[LabeledPrice(label=f"Тариф {plan['plan_name']}", amount=price_stars)],
-                reply_markup=InlineKeyboardBuilder().row(
-                    InlineKeyboardButton(text=f"⭐ Оплатить {price_stars} XTR", pay=True)
-                ).row(
-                    InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_email_prompt")
-                ).as_markup()
+                reply_markup=keyboard.as_markup()
             )
             await callback.message.delete()
         except Exception as e:
