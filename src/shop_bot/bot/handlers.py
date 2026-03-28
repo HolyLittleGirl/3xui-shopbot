@@ -976,26 +976,15 @@ def get_user_router() -> Router:
 
     async def process_trial_key_creation(message: types.Message, host_name: str):
         user_id = message.chat.id
-        await message.edit_text(f"Отлично! Создаю для вас бесплатный ключ на {get_setting('trial_duration_days')} дня на сервере \"{host_name}\"...")
-
+        logger.info(f"Starting trial key creation for user {user_id} on host '{host_name}'")
+        
         try:
-            # email: trial_{username}@bot.local с авто-суффиксом при коллизиях
-            user_data = get_user(user_id) or {}
-            raw_username = (user_data.get('username') or f'user{user_id}').lower()
-            username_slug = re.sub(r"[^a-z0-9._-]", "_", raw_username).strip("_")[:16] or f"user{user_id}"
-            base_local = f"trial_{username_slug}"
-            candidate_local = base_local
-            attempt = 1
-            while True:
-                candidate_email = f"{candidate_local}@bot.local"
-                if not get_key_by_email(candidate_email):
-                    break
-                attempt += 1
-                candidate_local = f"{base_local}-{attempt}"
-                if attempt > 100:
-                    candidate_local = f"{base_local}-{int(datetime.now().timestamp())}"
-                    candidate_email = f"{candidate_local}@bot.local"
-                    break
+            # Проверка: не использовал ли пользователь уже trial
+            user_db_data = get_user(user_id)
+            if user_db_data and user_db_data.get('trial_used'):
+                logger.warning(f"User {user_id} tried to use trial again")
+                await message.edit_text("❌ Вы уже использовали бесплатный пробный период.")
+                return
 
             # Проверка: существует ли хост
             host_data = get_host(host_name)
@@ -1010,11 +999,45 @@ def get_user_router() -> Router:
                 await message.edit_text("❌ Ошибка: сервер не настроен (отсутствуют данные для подключения).")
                 return
 
+            # Проверка: есть ли inbound_id
+            if not host_data.get('host_inbound_id'):
+                logger.error(f"Trial failed: host '{host_name}' missing inbound_id")
+                await message.edit_text("❌ Ошибка: сервер не настроен (отсутствует Inbound ID).")
+                return
+
+            await message.edit_text(f"Отлично! Создаю для вас бесплатный ключ на {get_setting('trial_duration_days')} дня на сервере \"{host_name}\"...")
+
+            # email: trial_{username}@bot.local с авто-суффиксом при коллизиях
+            user_data = user_db_data or {}
+            raw_username = (user_data.get('username') or f'user{user_id}').lower()
+            username_slug = re.sub(r"[^a-z0-9._-]", "_", raw_username).strip("_")[:16] or f"user{user_id}"
+            base_local = f"trial_{username_slug}"
+            candidate_email = None
+            
+            # Попытка генерации уникального email (максимум 100 попыток)
+            for attempt in range(1, 101):
+                if attempt == 1:
+                    candidate_local = base_local
+                else:
+                    candidate_local = f"{base_local}-{attempt}"
+                candidate_email = f"{candidate_local}@bot.local"
+                
+                existing_key = get_key_by_email(candidate_email)
+                if not existing_key:
+                    break
+            else:
+                # Если 100 попыток не удались, используем timestamp
+                candidate_local = f"{base_local}-{int(datetime.now().timestamp())}"
+                candidate_email = f"{candidate_local}@bot.local"
+                logger.info(f"Trial email generated with timestamp: {candidate_email}")
+
+            # Создание ключа в панели 3x-ui
             result = await xui_api.create_or_update_key_on_host(
                 host_name=host_name,
                 email=candidate_email,
-                days_to_add=int(get_setting("trial_duration_days"))
+                days_to_add=int(get_setting("trial_duration_days") or 1)
             )
+            
             if not result:
                 logger.error(f"Trial failed: xui_api returned None for host '{host_name}', email '{candidate_email}'")
                 await message.edit_text(
@@ -1027,24 +1050,61 @@ def get_user_router() -> Router:
                 )
                 return
 
-            set_trial_used(user_id)
+            # Сохранение в БД с обработкой UNIQUE constraint
+            new_key_id = None
+            try:
+                new_key_id = add_new_key(
+                    user_id=user_id,
+                    host_name=host_name,
+                    xui_client_uuid=result['client_uuid'],
+                    key_email=result['email'],
+                    expiry_timestamp_ms=result['expiry_timestamp_ms']
+                )
+            except Exception as db_error:
+                logger.error(f"Database error while saving trial key: {db_error}")
+                # Пробуем ещё раз с новым email (на случай race condition)
+                fallback_email = f"trial_{user_id}_{int(datetime.now().timestamp())}@bot.local"
+                result_retry = await xui_api.create_or_update_key_on_host(
+                    host_name=host_name,
+                    email=fallback_email,
+                    days_to_add=int(get_setting("trial_duration_days") or 1)
+                )
+                if result_retry:
+                    new_key_id = add_new_key(
+                        user_id=user_id,
+                        host_name=host_name,
+                        xui_client_uuid=result_retry['client_uuid'],
+                        key_email=result_retry['email'],
+                        expiry_timestamp_ms=result_retry['expiry_timestamp_ms']
+                    )
 
-            new_key_id = add_new_key(
-                user_id=user_id,
-                host_name=host_name,
-                xui_client_uuid=result['client_uuid'],
-                key_email=result['email'],
-                expiry_timestamp_ms=result['expiry_timestamp_ms']
-            )
+            if not new_key_id:
+                logger.error(f"Trial failed: could not save key to database for user {user_id}")
+                await message.edit_text("❌ Ошибка при сохранении ключа в базе данных.")
+                return
+
+            # Помечаем trial как использованный
+            try:
+                set_trial_used(user_id)
+            except Exception as e:
+                logger.error(f"Failed to set trial_used for user {user_id}: {e}")
+                # Не прерываем процесс, ключ уже создан
 
             await message.delete()
             new_expiry_date = datetime.fromtimestamp(result['expiry_timestamp_ms'] / 1000)
-            final_text = get_purchase_success_text("готов", get_next_key_number(user_id) -1, new_expiry_date, result['connection_string'])
+            final_text = get_purchase_success_text("готов", len(get_user_keys(user_id)), new_expiry_date, result['connection_string'])
             await message.answer(text=final_text, reply_markup=keyboards.create_key_info_keyboard(new_key_id))
+            logger.info(f"Trial key created successfully for user {user_id}, key_id={new_key_id}")
 
         except Exception as e:
             logger.error(f"Error creating trial key for user {user_id} on host {host_name}: {e}", exc_info=True)
-            await message.edit_text(f"❌ Произошла ошибка при создании пробного ключа.\n\nДетали: {e}")
+            try:
+                await message.edit_text(f"❌ Произошла ошибка при создании пробного ключа.\n\nДетали: {e}")
+            except Exception:
+                try:
+                    await message.answer(f"❌ Произошла ошибка при создании пробного ключа.\n\nДетали: {e}")
+                except Exception:
+                    pass
 
     @user_router.callback_query(F.data.startswith("show_key_"))
     @registration_required
