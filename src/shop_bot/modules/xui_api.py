@@ -12,14 +12,18 @@ logger = logging.getLogger(__name__)
 
 def login_to_host(host_url: str, username: str, password: str, inbound_id: int) -> tuple[Api | None, Inbound | None]:
     try:
+        logger.info(f"Logging in to 3x-ui panel: URL={host_url}, username={username}")
         api = Api(host=host_url, username=username, password=password)
         api.login()
+        logger.info(f"Login successful to {host_url}")
         inbounds: List[Inbound] = api.inbound.get_list()
+        logger.info(f"Found {len(inbounds)} inbounds on {host_url}")
         target_inbound = next((inbound for inbound in inbounds if inbound.id == inbound_id), None)
-        
+
         if target_inbound is None:
-            logger.error(f"Inbound with ID '{inbound_id}' not found on host '{host_url}'")
+            logger.error(f"Inbound with ID '{inbound_id}' not found on host '{host_url}'. Available IDs: {[i.id for i in inbounds]}")
             return None, None
+        logger.info(f"Found inbound ID={inbound_id} on {host_url}")
         return api, target_inbound
     except Exception as e:
         logger.error(f"Login or inbound retrieval failed for host '{host_url}': {e}", exc_info=True)
@@ -186,6 +190,8 @@ async def create_or_update_key_on_host(host_name: str, email: str, days_to_add: 
         logger.error(f"Workflow failed: Host '{host_name}' not found in the database.")
         return None
 
+    logger.info(f"Attempting to create key on host '{host_name}': URL={host_data.get('host_url')}, username={host_data.get('host_username')}")
+
     api, inbound = login_to_host(
         host_url=host_data['host_url'],
         username=host_data['host_username'],
@@ -195,7 +201,9 @@ async def create_or_update_key_on_host(host_name: str, email: str, days_to_add: 
     if not api or not inbound:
         logger.error(f"Workflow failed: Could not log in or find inbound on host '{host_name}'.")
         return None
-        
+
+    logger.info(f"Successfully logged in to host '{host_name}', inbound ID={inbound.id}")
+
     # Prefer exact expiry when provided (e.g., switching hosts), otherwise add days (purchase/extend/trial)
     client_uuid, new_expiry_ms, client_sub_token = update_or_create_client_on_panel(
         api, inbound.id, email, days_to_add=days_to_add, target_expiry_ms=expiry_timestamp_ms
@@ -204,12 +212,12 @@ async def create_or_update_key_on_host(host_name: str, email: str, days_to_add: 
     if not client_uuid:
         logger.error(f"Workflow failed: Could not create/update client '{email}' on host '{host_name}'.")
         return None
-    
+
     connection_string = get_subscription_link(client_uuid, host_data['host_url'], host_name, sub_token=client_sub_token)
-    
+
     logger.info(f"Successfully processed key for '{email}' on host '{host_name}'.")
-    
-    
+
+
     return {
         "client_uuid": client_uuid,
         "email": email,

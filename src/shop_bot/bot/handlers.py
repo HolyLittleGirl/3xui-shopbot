@@ -925,17 +925,38 @@ def get_user_router() -> Router:
                     candidate_email = f"{candidate_local}@bot.local"
                     break
 
+            # Проверка: существует ли хост
+            host_data = get_host(host_name)
+            if not host_data:
+                logger.error(f"Trial failed: host '{host_name}' not found in database")
+                await message.edit_text("❌ Ошибка: сервер не найден в базе данных.")
+                return
+
+            # Проверка: есть ли данные для подключения
+            if not host_data.get('host_url') or not host_data.get('host_username') or not host_data.get('host_pass'):
+                logger.error(f"Trial failed: host '{host_name}' missing connection settings")
+                await message.edit_text("❌ Ошибка: сервер не настроен (отсутствуют данные для подключения).")
+                return
+
             result = await xui_api.create_or_update_key_on_host(
                 host_name=host_name,
                 email=candidate_email,
                 days_to_add=int(get_setting("trial_duration_days"))
             )
             if not result:
-                await message.edit_text("❌ Не удалось создать пробный ключ. Ошибка на сервере.")
+                logger.error(f"Trial failed: xui_api returned None for host '{host_name}', email '{candidate_email}'")
+                await message.edit_text(
+                    "❌ Не удалось создать пробный ключ.\n\n"
+                    "Возможные причины:\n"
+                    "• Панель 3x-ui недоступна\n"
+                    "• Неверный логин/пароль от панели\n"
+                    "• Inbound с указанным ID не найден\n"
+                    "\nПроверьте настройки сервера в панели администратора."
+                )
                 return
 
             set_trial_used(user_id)
-            
+
             new_key_id = add_new_key(
                 user_id=user_id,
                 host_name=host_name,
@@ -943,7 +964,7 @@ def get_user_router() -> Router:
                 key_email=result['email'],
                 expiry_timestamp_ms=result['expiry_timestamp_ms']
             )
-            
+
             await message.delete()
             new_expiry_date = datetime.fromtimestamp(result['expiry_timestamp_ms'] / 1000)
             final_text = get_purchase_success_text("готов", get_next_key_number(user_id) -1, new_expiry_date, result['connection_string'])
@@ -951,7 +972,7 @@ def get_user_router() -> Router:
 
         except Exception as e:
             logger.error(f"Error creating trial key for user {user_id} on host {host_name}: {e}", exc_info=True)
-            await message.edit_text("❌ Произошла ошибка при создании пробного ключа.")
+            await message.edit_text(f"❌ Произошла ошибка при создании пробного ключа.\n\nДетали: {e}")
 
     @user_router.callback_query(F.data.startswith("show_key_"))
     @registration_required
