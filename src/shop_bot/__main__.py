@@ -3,6 +3,7 @@ import threading
 import asyncio
 import signal
 import re
+import os
 try:
     # Helps show ANSI colors on Windows terminals and some TTY-less streams
     import colorama  # type: ignore
@@ -106,6 +107,11 @@ def main():
     bot_controller = BotController()
     flask_app = create_webhook_app(bot_controller)
     
+    # Проверка автозапуска бота
+    auto_start = os.getenv("AUTO_START_BOT", "").lower() == "true"
+    if auto_start:
+        logger.info("AUTO_START_BOT=true — попытка автозапуска бота...")
+    
     async def shutdown(sig: signal.Signals, loop: asyncio.AbstractEventLoop):
         logger.info(f"Получен сигнал: {sig.name}. Запускаю завершение работы...")
         if bot_controller.get_status()["is_running"]:
@@ -130,11 +136,20 @@ def main():
             daemon=True
         )
         flask_thread.start()
-        
+
         logger.info("Flask-сервер запущен: http://0.0.0.0:1488")
-            
-        logger.info("Приложение запущено. Бота можно стартовать из веб-панели.")
-        
+
+        # Автозапуск бота если включено
+        if auto_start:
+            await asyncio.sleep(2)  # Ждём пока Flask запустится
+            result = bot_controller.start()
+            if result.get("status") == "success":
+                logger.info("Бот автоматически запущен (AUTO_START_BOT=true)")
+            else:
+                logger.warning(f"Не удалось автозапустить бота: {result.get('message')}")
+        else:
+            logger.info("Приложение запущено. Бота можно стартовать из веб-панели.")
+
         asyncio.create_task(periodic_subscription_check(bot_controller))
 
         # Бесконечное ожидание в мягком цикле сна, чтобы корректно ловить отмену без трейсбека

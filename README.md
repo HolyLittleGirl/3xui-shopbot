@@ -90,6 +90,26 @@ curl -sSL https://raw.githubusercontent.com/HolyLittleGirl/3xui-shopbot/main/ins
 
 После настройки нажмите **Запустить бота** в шапке панели.
 
+#### Автозапуск бота
+
+По умолчанию бот запускается вручную через веб-панель. Для автоматического запуска бота при старте контейнера:
+
+1. Откройте `docker-compose.yml` в директории проекта
+2. Раскомментируйте или добавьте переменную окружения:
+   ```yaml
+   environment:
+     - SHOPBOT_DB_PATH=/app/project/data/users.db
+     - AUTO_START_BOT=true  # Автозапуск бота при старте контейнера
+   ```
+3. Перезапустите контейнер:
+   ```bash
+   docker-compose restart
+   ```
+
+**Режимы работы:**
+- `AUTO_START_BOT=true` — бот запускается автоматически при старте контейнера (production режим)
+- `AUTO_START_BOT=false` или не указано — бот запускается вручную через веб-панель (development режим)
+
 ---
 
 ## Настройка платёжных систем
@@ -155,19 +175,14 @@ curl -sSL https://raw.githubusercontent.com/HolyLittleGirl/3xui-shopbot/main/ins
 
 ### Подготовка хоста ShopBot (панели шопа)
 
-Для тестирования скорости с сервера, где развёрнута панель ShopBot:
+SSH-ключ для подключения к хостам уже настроен в `docker-compose.yml`.
 
-1. Убедитесь, что SSH-ключ доступен внутри контейнера:
-   - Ключ должен находиться на сервере по пути `/root/.ssh/shopbot_key`
-   - Добавьте монтирование ключа в `docker-compose.yml`:
-     ```yaml
-     volumes:
-       - /root/.ssh/shopbot_key:/root/.ssh/shopbot_key:ro
-     ```
-   - Перезапустите контейнер:
-     ```bash
-     docker-compose down && docker-compose up -d
-     ```
+1. Поместите SSH-ключ в директорию проекта:
+   ```bash
+   # Скопируйте существующий ключ или создайте новый
+   cp /root/.ssh/id_ed25519 ./ssh-keys/shopbot_key
+   chmod 600 ./ssh-keys/shopbot_key
+   ```
 
 2. В разделе **Настройки → Управление хостами** найдите ваш хост
 
@@ -180,7 +195,7 @@ curl -sSL https://raw.githubusercontent.com/HolyLittleGirl/3xui-shopbot/main/ins
 
 4. Сохраните изменения
 
-> **Примечание:** Убедитесь, что на сервере ShopBot установлен `speedtest-cli` или доступен `speedtest.net`.
+> **Примечание:** Убедитесь, что на удалённом хосте установлен `speedtest` (Ookla) или `speedtest-cli`.
 
 ### Запуск speedtest
 
