@@ -9,8 +9,8 @@ services:
       - .:/app/project
       # Отдельный том для базы данных (надёжное сохранение)
       - shopbot-db:/app/project/data
-      # SSH-ключи для speedtest (опционально)
-      - /root/.ssh/shopbot_key:/root/.ssh/shopbot_key:ro
+      # SSH-ключи для speedtest (создаём директорию и монтируем ключ)
+      - ./ssh-keys:/root/.ssh
     container_name: 3xui-shopbot
     environment:
       - SHOPBOT_DB_PATH=/app/project/data/users.db

@@ -22,4 +22,4 @@ TODO
 .vscode/
 *.DS_Store
 
-test
+ssh-keys/
