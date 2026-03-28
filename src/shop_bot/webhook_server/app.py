@@ -81,12 +81,17 @@ def create_webhook_app(bot_controller_instance):
     logger.debug(f"Директория шаблонов существует? -> {os.path.isdir(template_dir)}")
     logger.debug(f"Файл login.html существует? -> {os.path.isfile(template_file)}")
     logger.debug("--- КОНЕЦ ДИАГНОСТИКИ ---")
-    
+
     flask_app = Flask(
         __name__,
-        template_folder='templates',
-        static_folder='static'
+        template_folder=template_dir,
+        static_folder=os.path.join(app_dir, 'static')
     )
+    
+    # Отключаем кэширование шаблонов
+    flask_app.config['TEMPLATES_AUTO_RELOAD'] = True
+    flask_app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+    flask_app.jinja_env.auto_reload = True
     
     # SECRET_KEY из окружения или сгенерированный на лету (без хардкода)
     flask_app.config['SECRET_KEY'] = os.getenv('SHOPBOT_SECRET_KEY') or secrets.token_hex(32)
