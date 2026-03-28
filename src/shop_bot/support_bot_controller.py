@@ -75,6 +75,9 @@ class SupportBotController:
             except Exception as e:
                 logger.warning(f"Не удалось удалить вебхук перед запуском опроса: {e}")
 
+            # Помечаем что бот запускается (для корректной работы stop())
+            self._is_running = True
+
             self._task = asyncio.run_coroutine_threadsafe(self._start_polling(), self._loop)
             logger.info("Команда на запуск передана в цикл событий.")
             return {"status": "success", "message": "Команда на запуск support-бота отправлена."}
