@@ -259,80 +259,27 @@ SSH-ключ для подключения к хостам уже настрое
 
 ## Управление и обновление
 
-### Публикация изменений на GitHub
+Полная документация для разработчиков находится в файле [**DEVELOPER.md**](DEVELOPER.md).
+
+### Быстрое обновление
 
 ```bash
-# Проверка статуса
-git status
-
-# Добавление изменений
-git add .
-
-# Коммит с сообщением
-git commit -m "Описание изменений"
-
-# Пуш в main
-git push origin main
-```
-
-### Обновление проекта на сервере
-
-**Вариант 1: Если код монтируется в контейнер (рекомендуется)**
-
-```bash
-# 1. Перейдите в директорию проекта
 cd /app/project
-
-# 2. Обновите код из репозитория
 git pull origin main
-
-# 3. Перезапустите контейнер
 docker-compose restart
 ```
 
-**Вариант 2: Если требуется пересборка образа**
+### Полная документация
 
-```bash
-# 1. Перейдите в директорию проекта
-cd /app/project
+В [**DEVELOPER.md**](DEVELOPER.md) вы найдёте:
 
-# 2. Остановите контейнеры
-docker-compose down
-
-# 3. Обновите код из репозитория
-git pull origin main
-
-# 4. Пересоберите образ
-docker-compose build --no-cache
-
-# 5. Запустите контейнеры
-docker-compose up -d
-```
-
-### Просмотр логов
-
-```bash
-docker-compose logs -f
-```
-
-### Остановка контейнеров
-
-```bash
-docker-compose down
-```
-
-### Запуск в фоне
-
-```bash
-docker-compose up -d
-```
-
-### Обновление через install.sh
-
-```bash
-curl -sSL https://raw.githubusercontent.com/HolyLittleGirl/3xui-shopbot/main/install.sh | sudo bash
-docker-compose down && docker-compose up
-```
+- Публикация изменений на GitHub
+- Обновление проекта на сервере (2 способа)
+- Управление контейнером (логи, остановка, запуск)
+- Работа с базой данных (бэкапы, восстановление)
+- Переменные окружения
+- Отладка и тестирование
+- Production Checklist
 
 ---
 
