@@ -50,7 +50,7 @@ class BotController:
     def start(self):
         if self._is_running:
             return {"status": "error", "message": "Бот уже запущен."}
-        
+
         if not self._loop or not self._loop.is_running():
             return {"status": "error", "message": "Критическая ошибка: цикл событий не установлен."}
 
@@ -67,12 +67,12 @@ class BotController:
         try:
             self._bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
             self._dp = Dispatcher()
-            
+
             # Вешаем BanMiddleware на уровни событий, где доступен event_from_user
             # Вместо уровня update, чтобы корректно отлавливать сообщения/колбэки забаненных пользователей
             self._dp.message.middleware(BanMiddleware())
             self._dp.callback_query.middleware(BanMiddleware())
-            
+
             user_router = get_user_router()
             admin_router = get_admin_router()
 
@@ -80,10 +80,10 @@ class BotController:
                 raise TypeError(f"get_user_router() must return Router instance, got: {type(user_router)}")
             if not isinstance(admin_router, Router):
                 raise TypeError(f"get_admin_router() must return Router instance, got: {type(admin_router)}")
-            
+
             self._dp.include_router(user_router)
             self._dp.include_router(admin_router)
-            
+
             try:
                 asyncio.run_coroutine_threadsafe(self._bot.delete_webhook(drop_pending_updates=True), self._loop)
             except Exception as e:
@@ -99,7 +99,7 @@ class BotController:
             heleket_shop_id = database.get_setting("heleket_merchant_id")
             heleket_api_key = database.get_setting("heleket_api_key")
             heleket_enabled = bool(heleket_api_key and heleket_shop_id)
-            
+
             ton_wallet_address = database.get_setting("ton_wallet_address")
             tonapi_key = database.get_setting("tonapi_key")
             tonconnect_enabled = bool(ton_wallet_address and tonapi_key)
@@ -107,7 +107,7 @@ class BotController:
             if yookassa_enabled:
                 Configuration.account_id = yookassa_shop_id
                 Configuration.secret_key = yookassa_secret_key
-            
+
             handlers.PAYMENT_METHODS = {
                 "yookassa": yookassa_enabled,
                 "heleket": heleket_enabled,
@@ -118,10 +118,13 @@ class BotController:
             handlers.TELEGRAM_BOT_USERNAME = bot_username
             handlers.ADMIN_ID = admin_id
 
+            # Помечаем что бот запускается (для корректной работы stop() во время автозапуска)
+            self._is_running = True
+            
             self._task = asyncio.run_coroutine_threadsafe(self._start_polling(), self._loop)
             logger.info("Команда на запуск передана в цикл событий.")
             return {"status": "success", "message": "Команда на запуск бота отправлена."}
-            
+
         except Exception as e:
             logger.error(f"Не удалось запустить бота: {e}", exc_info=True)
             self._bot = None
