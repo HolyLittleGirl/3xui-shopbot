@@ -459,12 +459,12 @@ def create_welcome_keyboard(channel_url: str | None, is_subscription_forced: boo
     # Кнопка принятия
     if channel_url and is_subscription_forced:
         builder.button(text="📢 Перейти в канал", url=channel_url)
-        builder.button(text="✅ Принимаю", callback_data="check_subscription_and_agree")
+        builder.button(text="✅ Принимаю, продолжить", callback_data="check_subscription_and_agree")
     elif channel_url:
         builder.button(text="📢 Наш канал (не обязательно)", url=channel_url)
-        builder.button(text="✅ Принимаю", callback_data="check_subscription_and_agree")
+        builder.button(text="✅ Принимаю, продолжить", callback_data="check_subscription_and_agree")
     else:
-        builder.button(text="✅ Принимаю", callback_data="check_subscription_and_agree")
+        builder.button(text="✅ Принимаю, продолжить", callback_data="check_subscription_and_agree")
 
     builder.adjust(1)
     return builder.as_markup()
