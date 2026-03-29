@@ -167,10 +167,9 @@ def create_about_keyboard(channel_url: str | None, terms_url: str | None, privac
     builder = InlineKeyboardBuilder()
     if channel_url:
         builder.button(text="📰 Наш канал", url=channel_url)
-    if terms_url:
-        builder.button(text="📄 Условия использования", url=terms_url)
-    if privacy_url:
-        builder.button(text="🔒 Политика конфиденциальности", url=privacy_url)
+    # Internal bot pages for legal documents
+    builder.button(text="📄 Условия использования", callback_data="show_terms")
+    builder.button(text="🔒 Политика конфиденциальности", callback_data="show_privacy")
     builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
     builder.adjust(1)
     return builder.as_markup()

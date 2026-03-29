@@ -51,6 +51,7 @@ from shop_bot.data_manager.database import (
     is_admin,
     set_referral_start_bonus_received,
     get_host,
+    set_legal_accepted, is_legal_accepted, set_privacy_agreed,
 )
 
 from shop_bot.config import (
@@ -711,7 +712,7 @@ def get_user_router() -> Router:
     @registration_required
     async def about_handler(callback: types.CallbackQuery):
         await callback.answer()
-        
+
         about_text = get_setting("about_text")
         terms_url = get_setting("terms_url")
         privacy_url = get_setting("privacy_url")
@@ -725,6 +726,116 @@ def get_user_router() -> Router:
             final_text,
             reply_markup=keyboard,
             disable_web_page_preview=True
+        )
+
+    # ========== LEGAL DOCUMENTS (PAGINATED) ==========
+
+    TERMS_PAGES = [
+        ("🔐 Условия использования\n\n1️⃣ Назначение сервиса\nСервис предоставляет защищённое соединение для повышения безопасности и конфиденциальности в сети.", "terms"),
+        ("Подходит для:\n🌐 доступа к онлайн-сервисам и инструментам\n📶 защиты в публичных Wi-Fi\n🛡️ предотвращения перехвата трафика", "terms"),
+        ("⚖️ 2️⃣ Правовая информация\nСервис работает в рамках законодательства РФ.\nНе предназначен для противоправного использования.\nПользователь самостоятельно несёт ответственность за соблюдение закона.", "terms"),
+        ("👤 3️⃣ Доступ к сервису\nИспользуя сервис, вы подтверждаете, что:\n• обладаете правоспособностью\n• либо используете сервис с согласия законного представителя", "terms"),
+        ("💳 4️⃣ Оплата\nОплата производится по выбранному тарифу.\nВозврат — в соответствии с законодательством РФ.", "terms"),
+        ("🔒 5️⃣ Конфиденциальность\nСервис не ведёт логи активности.\nEmail может запрашиваться только по согласию пользователя.", "terms"),
+        ("🚫 6️⃣ Ограничения\nЗапрещено использовать сервис для:\n• незаконной деятельности\n• кибератак\n• распространения запрещённого контента\n• нарушений законодательства РФ", "terms"),
+        ("🛠 7️⃣ Поддержка\nДоступна через Telegram-бот → раздел «Помощь»", "terms"),
+        ("🔄 8️⃣ Изменения условий\nАктуальная версия публикуется в боте.\n\n📌 Используя сервис, вы принимаете данные условия.", "terms"),
+    ]
+
+    PRIVACY_PAGES = [
+        ("🔐 Политика конфиденциальности\n\n1️⃣ Общие положения\nМы обрабатываем только минимально необходимые данные в соответствии с 152-ФЗ.", "privacy"),
+        ("📊 2️⃣ Какие данные собираются\n• Telegram ID\n• username\n\nДополнительно (по согласию):\n• email\n\nТакже:\n• данные о подписке\n• информация о факте оплаты", "privacy"),
+        ("🎯 3️⃣ Зачем нужны данные\n• доступ к сервису\n• учёт подписки\n• поддержка\n• безопасность", "privacy"),
+        ("⚖️ 4️⃣ Основания обработки\n• согласие пользователя\n• исполнение пользовательского соглашения", "privacy"),
+        ("🚫 5️⃣ Что мы НЕ делаем\n• не ведём логи активности\n• не отслеживаем сайты\n• не анализируем трафик\n• не продаём данные", "privacy"),
+        ("🤝 6️⃣ Передача данных\nДанные не передаются третьим лицам, кроме случаев, предусмотренных законом РФ.\n\nПлатежи обрабатываются внешними сервисами — данные вводятся пользователем напрямую.", "privacy"),
+        ("👤 7️⃣ Права пользователя\nВы можете:\n• запросить данные\n• изменить или удалить их\n• отозвать согласие", "privacy"),
+        ("⏳ 8️⃣ Хранение\nДанные хранятся только на время использования сервиса.", "privacy"),
+        ("📞 9️⃣ Контакты\nПоддержка — через Telegram-бот\n\n🔄 10️⃣ Изменения\nАктуальная версия всегда доступна в боте.\n\n📌 Используя сервис, вы соглашаетесь с данной Политикой.", "privacy"),
+    ]
+
+    def _create_legal_keyboard(self, doc_type: str, pages: list, current: int) -> InlineKeyboardMarkup:
+        builder = InlineKeyboardBuilder()
+        if current > 0:
+            builder.button(text="⬅️ Назад", callback_data=f"legal_prev_{doc_type}_{current}")
+        if current < len(pages) - 1:
+            builder.button(text="Далее ➡️", callback_data=f"legal_next_{doc_type}_{current}")
+        else:
+            # Last page - show Accept button
+            accept_cb = "accept_terms" if doc_type == "terms" else "accept_privacy"
+            builder.button(text="✅ Принять", callback_data=accept_cb)
+        builder.button(text="❌ Закрыть", callback_data="back_to_main_menu")
+        builder.adjust(2 if current < len(pages) - 1 else 1)
+        return builder.as_markup()
+
+    @user_router.callback_query(F.data == "show_terms")
+    @registration_required
+    async def show_terms_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            self.TERMS_PAGES[0][0],
+            reply_markup=self._create_legal_keyboard("terms", self.TERMS_PAGES, 0)
+        )
+
+    @user_router.callback_query(F.data == "show_privacy")
+    @registration_required
+    async def show_privacy_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            self.PRIVACY_PAGES[0][0],
+            reply_markup=self._create_legal_keyboard("privacy", self.PRIVACY_PAGES, 0)
+        )
+
+    @user_router.callback_query(F.data.startswith("legal_next_"))
+    @registration_required
+    async def legal_next_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        parts = callback.data.split("_")
+        doc_type = parts[2]
+        current = int(parts[3])
+        next_page = current + 1
+        pages = self.TERMS_PAGES if doc_type == "terms" else self.PRIVACY_PAGES
+        if next_page < len(pages):
+            await callback.message.edit_text(
+                pages[next_page][0],
+                reply_markup=self._create_legal_keyboard(doc_type, pages, next_page)
+            )
+
+    @user_router.callback_query(F.data.startswith("legal_prev_"))
+    @registration_required
+    async def legal_prev_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        parts = callback.data.split("_")
+        doc_type = parts[2]
+        current = int(parts[3])
+        prev_page = current - 1
+        pages = self.TERMS_PAGES if doc_type == "terms" else self.PRIVACY_PAGES
+        if prev_page >= 0:
+            await callback.message.edit_text(
+                pages[prev_page][0],
+                reply_markup=self._create_legal_keyboard(doc_type, pages, prev_page)
+            )
+
+    @user_router.callback_query(F.data == "accept_terms")
+    @registration_required
+    async def accept_terms_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        set_legal_accepted(user_id)
+        await callback.message.edit_text(
+            "✅ Спасибо! Вы приняли Условия использования.\n\nТеперь вы можете пользоваться всеми функциями бота.",
+            reply_markup=keyboards.create_back_to_menu_keyboard()
+        )
+
+    @user_router.callback_query(F.data == "accept_privacy")
+    @registration_required
+    async def accept_privacy_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        user_id = callback.from_user.id
+        set_privacy_agreed(user_id)
+        await callback.message.edit_text(
+            "✅ Спасибо! Вы приняли Политику конфиденциальности.\n\nВаши данные под защитой.",
+            reply_markup=keyboards.create_back_to_menu_keyboard()
         )
 
     @user_router.callback_query(F.data == "show_help")

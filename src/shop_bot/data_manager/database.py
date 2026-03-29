@@ -48,6 +48,7 @@ def initialize_db():
                     telegram_id INTEGER PRIMARY KEY, username TEXT, total_spent REAL DEFAULT 0,
                     total_months INTEGER DEFAULT 0, trial_used BOOLEAN DEFAULT 0,
                     agreed_to_terms BOOLEAN DEFAULT 0,
+                    agreed_to_privacy BOOLEAN DEFAULT 0,
                     registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     is_banned BOOLEAN DEFAULT 0,
                     balance REAL DEFAULT 0,
@@ -250,7 +251,13 @@ def run_migration():
             logging.info(" -> Столбец 'referral_start_bonus_received' успешно добавлен.")
         else:
             logging.info(" -> Столбец 'referral_start_bonus_received' уже существует.")
-        
+
+        if 'agreed_to_privacy' not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN agreed_to_privacy BOOLEAN DEFAULT 0")
+            logging.info(" -> Столбец 'agreed_to_privacy' успешно добавлен.")
+        else:
+            logging.info(" -> Столбец 'agreed_to_privacy' уже существует.")
+
         logging.info("Таблица 'users' успешно обновлена.")
 
         logging.info("Миграция таблицы 'transactions' ...")
@@ -1289,6 +1296,42 @@ def set_terms_agreed(telegram_id: int):
             logging.info(f"User {telegram_id} has agreed to terms.")
     except sqlite3.Error as e:
         logging.error(f"Failed to set terms agreed for user {telegram_id}: {e}")
+
+def set_privacy_agreed(telegram_id: int):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET agreed_to_privacy = 1 WHERE telegram_id = ?", (telegram_id,))
+            conn.commit()
+            logging.info(f"User {telegram_id} has agreed to privacy policy.")
+    except sqlite3.Error as e:
+        logging.error(f"Failed to set privacy agreed for user {telegram_id}: {e}")
+
+def set_legal_accepted(telegram_id: int):
+    """Mark both terms and privacy as accepted."""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET agreed_to_terms = 1, agreed_to_privacy = 1 WHERE telegram_id = ?", (telegram_id,))
+            conn.commit()
+            logging.info(f"User {telegram_id} has accepted all legal documents.")
+    except sqlite3.Error as e:
+        logging.error(f"Failed to set legal accepted for user {telegram_id}: {e}")
+
+def is_legal_accepted(telegram_id: int) -> bool:
+    """Check if user has accepted both terms and privacy policy."""
+    try:
+        with get_db_connection() as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT agreed_to_terms, agreed_to_privacy FROM users WHERE telegram_id = ?", (telegram_id,))
+            row = cursor.fetchone()
+            if row:
+                return bool(row['agreed_to_terms'] and row['agreed_to_privacy'])
+            return False
+    except sqlite3.Error as e:
+        logging.error(f"Failed to check legal acceptance for user {telegram_id}: {e}")
+        return False
 
 def update_user_stats(telegram_id: int, amount_spent: float, months_purchased: int):
     try:
