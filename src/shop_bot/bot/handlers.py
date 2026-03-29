@@ -665,9 +665,18 @@ def get_user_router() -> Router:
     async def back_to_topup_amount_handler(callback: types.CallbackQuery, state: FSMContext):
         """Возврат к вводу суммы пополнения."""
         await callback.answer()
-        await callback.message.edit_text(
-            "Введите сумму пополнения в рублях (например, 300):\nМинимум: 10 RUB, максимум: 100000 RUB",
-        )
+        try:
+            await callback.message.edit_text(
+                "Введите сумму пополнения в рублях (например, 300):\nМинимум: 10 RUB, максимум: 100000 RUB",
+            )
+        except TelegramBadRequest as e:
+            if "message can't be edited" in str(e):
+                # Сообщение слишком старое или удалено — отправляем новое
+                await callback.message.answer(
+                    "Введите сумму пополнения в рублях (например, 300):\nМинимум: 10 RUB, максимум: 100000 RUB",
+                )
+            else:
+                raise
         await state.set_state(TopUpProcess.waiting_for_amount)
 
     @user_router.callback_query(F.data == "show_referral_program")
