@@ -991,24 +991,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ===== MOBILE: Burger menu toggle =====
-    const burgerCheckbox = document.getElementById('burger');
+    // Note: CSS handles the toggle via checkbox, this is just for closing on link click
     const burgerMenu = document.querySelector('.burger-menu');
-    if (burgerCheckbox && burgerMenu) {
-        burgerCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                burgerMenu.classList.add('show');
-                document.body.style.overflow = 'hidden';
-            } else {
-                burgerMenu.classList.remove('show');
-                document.body.style.overflow = '';
-            }
-        });
-        // Close on link click
+    if (burgerMenu) {
         burgerMenu.querySelectorAll('a').forEach(link => {
             link.addEventListener('click', () => {
-                burgerCheckbox.checked = false;
-                burgerMenu.classList.remove('show');
-                document.body.style.overflow = '';
+                const checkbox = document.getElementById('burger');
+                if (checkbox) checkbox.checked = false;
             });
         });
     }

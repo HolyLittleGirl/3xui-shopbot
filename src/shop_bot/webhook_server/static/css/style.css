@@ -1,30 +1,24 @@
 /* ===== PERFORMANCE: Reduce paint/reflow ===== */
 * { box-sizing: border-box; }
-html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; overflow-x: hidden; }
-body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; overflow-x: hidden; width: 100%; }
+body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; width: 100%; max-width: 100vw; }
 
 /* Smooth swap for partial updates */
-.is-swapping {
-  transition: min-height .24s ease;
-}
+.is-swapping { transition: min-height .24s ease; }
 
 /* ===== BASE LAYOUT ===== */
-.container {
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
+.container { max-width: 100%; margin: 0 auto; padding: 0 1rem; width: 100%; }
 
 /* ===== DESKTOP: Better scaling ===== */
 @media (min-width: 1200px) {
-  .container { max-width: 1320px; }
+  .container { max-width: 1200px; }
   .card-body { padding: 1.5rem; }
   .form-control, .form-select { font-size: 0.95rem; }
   .btn { padding: 0.5rem 1.25rem; font-size: 0.95rem; }
 }
 
 @media (min-width: 1600px) {
-  .container { max-width: 1500px; }
+  .container { max-width: 1400px; }
   body { font-size: 16px; }
   .card-body { padding: 2rem; }
   .form-control, .form-select { font-size: 1rem; }
@@ -33,18 +27,21 @@ body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
 
 /* ===== MOBILE: Responsive layout ===== */
 @media (max-width: 767.98px) {
-  .container { padding: 0 0.75rem; }
+  .container { padding: 0 0.5rem; }
   
   .main-header { 
     flex-wrap: wrap; 
     gap: 0.5rem; 
     padding: 0.5rem;
     position: relative;
+    width: 100%;
   }
   
   .main-header .brand { 
-    width: calc(100% - 50px);
+    width: auto;
+    flex: 1 1 auto;
     min-width: 0;
+    max-width: calc(100% - 44px);
   }
   
   .main-header .brand-link {
@@ -53,7 +50,7 @@ body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
   }
   
   .main-header .brand-link img {
-    height: 32px;
+    height: 36px;
     width: auto;
   }
   
@@ -62,7 +59,7 @@ body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 200px;
+    max-width: 180px;
     display: inline-block;
   }
   
@@ -92,7 +89,7 @@ body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
   .user-session-controls form { display: inline-block; }
   
   .card-body { padding: 1rem; }
-  .form-control, .form-select { font-size: 16px; } /* Prevents iOS zoom */
+  .form-control, .form-select { font-size: 16px; }
   .btn { padding: 0.5rem 1rem; font-size: 0.9rem; white-space: nowrap; }
   
   .settings-container { flex-direction: column; }
@@ -102,17 +99,75 @@ body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
   .plan-row { flex-direction: column; align-items: flex-start; gap: 8px; }
   .plan-label { min-width: auto; }
   
-  /* Burger menu */
+  /* Burger button */
   .bm { 
-    display: block; 
-    position: relative;
+    display: block !important;
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 1051;
   }
   
-  .burger-menu { 
+  .bm input#burger { display: none; }
+  
+  .bm label.burger_img {
+    display: block;
+    width: 32px;
+    height: 24px;
+    position: relative;
+    cursor: pointer;
+    z-index: 1052;
+  }
+  
+  .bm label.burger_img::before,
+  .bm label.burger_img::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+  }
+  
+  .bm label.burger_img::before { top: 0; }
+  .bm label.burger_img::after { bottom: 0; }
+  
+  .bm label.burger_img span {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 3px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+  }
+  
+  /* Burger animation when checked */
+  .bm input#burger:checked + label.burger_img::before {
+    transform: rotate(45deg);
+    top: 50%;
+  }
+  
+  .bm input#burger:checked + label.burger_img span {
+    opacity: 0;
+  }
+  
+  .bm input#burger:checked + label.burger_img::after {
+    transform: rotate(-45deg);
+    bottom: 50%;
+  }
+  
+  /* Burger menu panel */
+  .bm .burger-menu { 
     position: fixed; 
     top: 0; 
-    right: -100%; 
+    right: -300px; 
     width: 280px; 
     max-width: 85vw;
     height: 100vh; 
@@ -121,19 +176,20 @@ body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
     background: var(--bg-card);
     box-shadow: -4px 0 20px rgba(0,0,0,0.3);
     overflow-y: auto;
+    display: block;
   }
   
-  .burger-menu.show { right: 0; }
+  .bm input#burger:checked ~ .burger-menu { right: 0; }
   
-  .burger-menu ul { 
+  .bm .burger-menu ul { 
     padding: 70px 16px 20px; 
     margin: 0; 
     list-style: none; 
   }
   
-  .burger-menu li { margin: 8px 0; }
+  .bm .burger-menu li { margin: 8px 0; }
   
-  .burger-menu a { 
+  .bm .burger-menu a { 
     display: block; 
     padding: 14px 16px; 
     color: var(--text-primary); 
@@ -142,50 +198,9 @@ body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
     font-size: 1rem;
   }
   
-  .burger-menu a:hover { 
+  .bm .burger-menu a:hover { 
     background: rgba(174,62,201,0.15); 
   }
-  
-  /* Burger icon */
-  .burger_img {
-    display: block;
-    width: 30px;
-    height: 20px;
-    position: relative;
-    cursor: pointer;
-  }
-  
-  .burger_img::before,
-  .burger_img::after,
-  .burger_img span {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 3px;
-    background: var(--text-primary);
-    border-radius: 2px;
-    transition: all 0.3s ease;
-  }
-  
-  .burger_img::before { top: 0; }
-  .burger_img span { top: 50%; transform: translateY(-50%); }
-  .burger_img::after { bottom: 0; }
-  
-  #burger:checked + .burger_img::before {
-    transform: rotate(45deg);
-    top: 50%;
-  }
-  
-  #burger:checked + .burger_img span {
-    opacity: 0;
-  }
-  
-  #burger:checked + .burger_img::after {
-    transform: rotate(-45deg);
-    bottom: 50%;
-  }
-  
-  #burger { display: none; }
 }
 
 /* Tablet */
@@ -197,23 +212,28 @@ body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
   #brand-title { font-size: 0.95rem; }
 }
 
-/* ===== INPUT PERFORMANCE: Remove unnecessary transitions ===== */
+/* Small phones */
+@media (max-width: 576px) {
+  .user-session-controls > span { display: none; }
+  .header-controls { gap: 8px; }
+  .brand { max-width: 40%; }
+  .brand img { height: 32px; }
+  #brand-title { font-size: 0.8rem; max-width: 120px; }
+  .navigation { display: none !important; }
+}
+
+/* ===== INPUT PERFORMANCE ===== */
 .form-control, .form-select {
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
   will-change: border-color;
 }
-.form-control:focus, .form-select:focus {
-  transition: none;
-}
+.form-control:focus, .form-select:focus { transition: none; }
 
-/* Button hover without lag */
 .btn {
   transition: transform 0.1s ease, background-color 0.15s ease;
   will-change: transform;
 }
-.btn:active {
-  transform: scale(0.98);
-}
+.btn:active { transform: scale(0.98); }
 
 /* --- UI utility: pill rounding --- */
 .pill { border-radius: 9999px !important; }
@@ -517,61 +537,10 @@ body { will-change: auto; margin: 0; padding: 0; overflow-x: hidden; }
 	margin: 0;
 	padding: 0;
 }
-.bm { display: none; position: absolute; right: 12px; top: 10px; }
-#burger {
-	display: none;
-}
-/* Базовые стили бургер-меню (будут активированы на малых экранах) */
-.burger-menu { display: none; }
-label.burger_img {
-  display: none;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  background: color-mix(in oklab, var(--bg-surface) 85%, transparent);
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.22);
-}
-/* Иконка "гамбургера" через псевдоэлемент */
-label.burger_img::before {
-  content: "\2630"; /* ☰ */
-  font-size: 18px;
-  line-height: 1;
-  color: var(--text-primary);
-}
+/* Burger menu styles moved to mobile media query */
 
-/* Выпадающее меню бургера */
-.bm .burger-menu {
-  position: absolute;
-  right: 0;
-  top: 46px;
-  min-width: 200px;
-  max-width: calc(100vw - 24px); /* не даём меню выходить за край экрана */
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: calc(var(--ui-radius) + 2px);
-  box-shadow: 0 12px 28px rgba(0,0,0,0.28);
-  z-index: 1200;
-}
-.bm .burger-menu a { word-break: break-word; }
-.bm .burger-menu ul { list-style: none; padding: 8px; margin: 0; }
-.bm .burger-menu li { margin: 2px 0; }
-.bm .burger-menu a {
-  display: block;
-  padding: 10px 12px;
-  border-radius: 8px;
-  color: var(--text-primary);
-  text-decoration: none;
-}
-.bm .burger-menu a:hover {
-  background: color-mix(in oklab, var(--primary-color) 18%, transparent);
-}
+.header-controls { display:flex; align-items:center; gap: 10px; }
 
-/* Показ меню при активном чекбоксе */
-#burger:checked ~ .burger-menu { display: block; }
 html, body { height: 100%; font-size: calc(16px * var(--ui-font-scale)); }
 /* Предотвращаем горизонтальный рывок из-за появления/скрытия вертикального скроллбара */
 html { scrollbar-gutter: stable; }
