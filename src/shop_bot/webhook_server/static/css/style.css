@@ -1,6 +1,83 @@
+/* ===== PERFORMANCE: Reduce paint/reflow ===== */
+* { box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+body { will-change: auto; }
+
 /* Smooth swap for partial updates */
 .is-swapping {
   transition: min-height .24s ease;
+}
+
+/* ===== DESKTOP: Better scaling ===== */
+@media (min-width: 1200px) {
+  .container { max-width: 1400px; }
+  .card-body { padding: 1.5rem; }
+  .form-control, .form-select { font-size: 0.95rem; }
+  .btn { padding: 0.5rem 1.25rem; font-size: 0.95rem; }
+}
+
+@media (min-width: 1600px) {
+  .container { max-width: 1600px; }
+  body { font-size: 16px; }
+  .card-body { padding: 2rem; }
+  .form-control, .form-select { font-size: 1rem; }
+  .btn { padding: 0.6rem 1.5rem; font-size: 1rem; }
+}
+
+/* ===== MOBILE: Responsive layout ===== */
+@media (max-width: 767.98px) {
+  .container { padding: 0.5rem; }
+  .main-header { flex-direction: column; gap: 0.75rem; padding: 0.75rem 0.5rem; }
+  .main-header .brand { width: 100%; justify-content: space-between; }
+  .main-header .navigation { display: none; }
+  .main-header .header-controls { width: 100%; flex-direction: column; gap: 0.5rem; }
+  .bot-control { width: 100%; text-align: center; }
+  .user-session-controls { width: 100%; display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
+  
+  .card-body { padding: 1rem; }
+  .form-control, .form-select { font-size: 16px; } /* Prevents iOS zoom */
+  .btn { padding: 0.5rem 1rem; font-size: 0.9rem; }
+  
+  .settings-container { flex-direction: column; }
+  .settings-column-left, .settings-column-right { width: 100%; }
+  
+  .host-card { margin-bottom: 1rem; }
+  .plan-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .plan-label { min-width: auto; }
+  
+  /* Burger menu improvements */
+  .bm { display: block; }
+  .burger-menu { position: fixed; top: 0; right: -280px; width: 280px; height: 100vh; z-index: 1050; transition: right 0.3s ease; }
+  .burger-menu.show { right: 0; }
+  .burger-menu ul { padding: 80px 20px 20px; margin: 0; list-style: none; }
+  .burger-menu li { margin: 10px 0; }
+  .burger-menu a { display: block; padding: 12px 16px; color: var(--text-primary); text-decoration: none; border-radius: 8px; }
+  .burger-menu a:hover { background: rgba(174,62,201,0.15); }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .container { max-width: 100%; padding: 0 1rem; }
+  .main-header .navigation { gap: 0.5rem; }
+  .main-header .navigation a { font-size: 0.85rem; padding: 0.4rem 0.6rem; }
+}
+
+/* ===== INPUT PERFORMANCE: Remove unnecessary transitions ===== */
+.form-control, .form-select {
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  will-change: border-color;
+}
+.form-control:focus, .form-select:focus {
+  transition: none;
+}
+
+/* Button hover without lag */
+.btn {
+  transition: transform 0.1s ease, background-color 0.15s ease;
+  will-change: transform;
+}
+.btn:active {
+  transform: scale(0.98);
 }
 
 /* --- UI utility: pill rounding --- */
