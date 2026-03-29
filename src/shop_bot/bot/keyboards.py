@@ -293,6 +293,8 @@ def create_payment_method_keyboard(
         if main_balance is not None and price is not None:
             try:
                 label += f" ({price:.0f} RUB)"
+                if price_stars and price_stars > 0:
+                    label += f" / {price_stars} ⭐"
             except Exception:
                 pass
         builder.button(text=label, callback_data="pay_balance")
@@ -301,12 +303,15 @@ def create_payment_method_keyboard(
     if payment_methods and payment_methods.get("yookassa"):
         btn_text = "🏦 СБП / Банковская карта"
         if price is not None:
-            btn_text += f" ({price:.0f} RUB)"
+            btn_text += f" ({price:.0f} RUB"
+            if price_stars and price_stars > 0:
+                btn_text += f" / {price_stars} ⭐"
+            btn_text += ")"
         if get_setting("sbp_enabled"):
             builder.button(text=btn_text, callback_data="pay_yookassa")
         else:
             builder.button(text=btn_text, callback_data="pay_yookassa")
-    
+
     # Heleket - показываем только если настроен
     if payment_methods and payment_methods.get("heleket"):
         heleket_merchant = get_setting("heleket_merchant_id")
@@ -314,22 +319,31 @@ def create_payment_method_keyboard(
         if heleket_merchant and heleket_api_key:
             btn_text = "💳 Heleket (карты/крипта)"
             if price is not None:
-                btn_text += f" ({price:.0f} RUB)"
+                btn_text += f" ({price:.0f} RUB"
+                if price_stars and price_stars > 0:
+                    btn_text += f" / {price_stars} ⭐"
+                btn_text += ")"
             builder.button(text=btn_text, callback_data="pay_heleket")
-    
+
     # CryptoBot - показываем только если настроен
     if payment_methods and payment_methods.get("cryptobot"):
         cryptobot_token = get_setting("cryptobot_token")
         if cryptobot_token:
             btn_text = "🤖 CryptoBot (криптовалюта)"
             if price is not None:
-                btn_text += f" ({price:.0f} RUB)"
+                btn_text += f" ({price:.0f} RUB"
+                if price_stars and price_stars > 0:
+                    btn_text += f" / {price_stars} ⭐"
+                btn_text += ")"
             builder.button(text=btn_text, callback_data="pay_cryptobot")
-    
+
     if payment_methods and payment_methods.get("tonconnect"):
         btn_text = "🪙 TON Connect"
         if price is not None:
-            btn_text += f" ({price:.0f} RUB)"
+            btn_text += f" ({price:.0f} RUB"
+            if price_stars and price_stars > 0:
+                btn_text += f" / {price_stars} ⭐"
+            btn_text += ")"
         callback_data_ton = "pay_tonconnect"
         logger.info(f"Creating TON button with callback_data: '{callback_data_ton}'")
         builder.button(text=btn_text, callback_data=callback_data_ton)
