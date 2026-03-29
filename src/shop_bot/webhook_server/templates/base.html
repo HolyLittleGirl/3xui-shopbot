@@ -2,27 +2,26 @@
 <html lang="ru" data-bs-theme="dark">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-		<meta name="theme-color" content="#ae3ec9" />
-		<meta name="csrf-token" content="{{ csrf_token() }}" />
-		<!-- Performance: Preconnect to CDN -->
-		<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-		<!-- Favicon -->
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>{% block title %}Панель управления Ботом{% endblock %}</title>
 		<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}" />
 		<link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16x16.png') }}" />
 		<link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon-32x32.png') }}" />
 		<link rel="icon" href="{{ url_for('static', filename='img/safari-pinned-tab.svg') }}" type="image/svg+xml" />
 		<link rel="mask-icon" href="{{ url_for('static', filename='img/safari-pinned-tab.svg') }}" color="#ae3ec9" />
 		<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}" />
-		<title>{% block title %}Панель управления Ботом{% endblock %}</title>
-		<!-- Tabler CSS (Bootstrap 5-based) - Single bundle for performance -->
+		<meta name="theme-color" content="#ae3ec9" />
+		<meta name="csrf-token" content="{{ csrf_token() }}" />
+		<!-- Tabler CSS (Bootstrap 5-based) -->
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css" />
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler-flags.min.css" />
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler-payments.min.css" />
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler-vendors.min.css" />
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+
 		<!-- Project custom styles -->
 		<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+
 		<!-- Charts -->
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <!-- Optional: zoom/pan plugin for Chart.js -->

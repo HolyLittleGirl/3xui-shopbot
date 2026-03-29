@@ -1,17 +1,4 @@
 document.addEventListener('DOMContentLoaded', function () {
-    // PERFORMANCE: Debounce helper
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-
     // CSRF helper (meta -> token)
     function getCsrfToken(){
         const meta = document.querySelector('meta[name="csrf-token"]');
@@ -139,42 +126,15 @@ document.addEventListener('DOMContentLoaded', function () {
             };
             setIcon();
 
-            // PERFORMANCE: Use mousedown instead of click for faster response
-            button.addEventListener('mousedown', function (e) {
-                e.preventDefault(); // Prevent input blur
+            button.addEventListener('click', function () {
                 const scope = this.closest('.password-wrapper') || this.closest('.form-group') || document;
                 const passwordInput = scope.querySelector('input[type="password"], input[type="text"]');
                 if (!passwordInput) return;
-                // Show password immediately
-                try { passwordInput.type = 'text'; } catch(_) {}
-                setIcon();
-            }, { passive: true });
-
-            button.addEventListener('mouseup', function () {
-                const scope = this.closest('.password-wrapper') || this.closest('.form-group') || document;
-                const passwordInput = scope.querySelector('input[type="password"], input[type="text"]');
-                if (!passwordInput) return;
-                // Hide password on release
-                try { passwordInput.type = 'password'; } catch(_) {}
-                setIcon();
-            });
-
-            // Touch support for mobile
-            button.addEventListener('touchstart', function (e) {
-                e.preventDefault();
-                const scope = this.closest('.password-wrapper') || this.closest('.form-group') || document;
-                const passwordInput = scope.querySelector('input[type="password"], input[type="text"]');
-                if (!passwordInput) return;
-                try { passwordInput.type = 'text'; } catch(_) {}
-                setIcon();
-            }, { passive: true });
-
-            button.addEventListener('touchend', function (e) {
-                e.preventDefault();
-                const scope = this.closest('.password-wrapper') || this.closest('.form-group') || document;
-                const passwordInput = scope.querySelector('input[type="password"], input[type="text"]');
-                if (!passwordInput) return;
-                try { passwordInput.type = 'password'; } catch(_) {}
+                if (passwordInput.type === 'password') {
+                    try { passwordInput.type = 'text'; } catch(_) {}
+                } else {
+                    try { passwordInput.type = 'password'; } catch(_) {}
+                }
                 setIcon();
             });
         });
@@ -989,16 +949,4 @@ document.addEventListener('DOMContentLoaded', function () {
         btnCancel.addEventListener('click', () => { input.value = orig.value; setMode(false); });
         row.addEventListener('submit', () => { orig.value = input.value; setMode(false); });
     });
-
-    // ===== MOBILE: Burger menu toggle =====
-    // Note: CSS handles the toggle via checkbox, this is just for closing on link click
-    const burgerMenu = document.querySelector('.burger-menu');
-    if (burgerMenu) {
-        burgerMenu.querySelectorAll('a').forEach(link => {
-            link.addEventListener('click', () => {
-                const checkbox = document.getElementById('burger');
-                if (checkbox) checkbox.checked = false;
-            });
-        });
-    }
 });
