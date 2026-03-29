@@ -263,10 +263,14 @@ def create_plans_keyboard(plans: list[dict], action: str, host_name: str, key_id
     builder = InlineKeyboardBuilder()
     for plan in plans:
         callback_data = f"buy_{host_name}_{plan['plan_id']}_{action}_{key_id}"
-        builder.button(text=f"{plan['plan_name']} - {plan['price']:.0f} RUB", callback_data=callback_data)
+        btn_text = f"{plan['plan_name']} - {plan['price']:.0f} RUB"
+        # Добавляем звёзды если указаны
+        if plan.get('price_stars') and plan['price_stars'] > 0:
+            btn_text += f" / {plan['price_stars']} ⭐"
+        builder.button(text=btn_text, callback_data=callback_data)
     back_callback = "manage_keys" if action == "extend" else "buy_new_key"
     builder.button(text="⬅️ Назад", callback_data=back_callback)
-    builder.adjust(1) 
+    builder.adjust(1)
     return builder.as_markup()
 
 def create_skip_email_keyboard() -> InlineKeyboardMarkup:
@@ -322,20 +326,13 @@ def create_payment_method_keyboard(
             builder.button(text=btn_text, callback_data="pay_heleket")
 
     # CryptoBot - показываем только если настроен токен
-    # NOTE: CryptoBot API отключен, кнопка будет использовать Heleket как fallback
     if payment_methods and payment_methods.get("cryptobot"):
         cryptobot_token = get_setting("cryptobot_token")
         if cryptobot_token:
-            # Проверяем, есть ли Heleket для fallback
-            heleket_merchant = get_setting("heleket_merchant_id")
-            heleket_api_key = get_setting("heleket_api_key")
-            
-            # Показываем кнопку только если есть fallback (Heleket)
-            if heleket_merchant and heleket_api_key:
-                btn_text = "🤖 CryptoBot (криптовалюта)"
-                if price is not None:
-                    btn_text += f" ({price:.0f} RUB)"
-                builder.button(text=btn_text, callback_data="pay_cryptobot")
+            btn_text = "🤖 CryptoBot (криптовалюта)"
+            if price is not None:
+                btn_text += f" ({price:.0f} RUB)"
+            builder.button(text=btn_text, callback_data="pay_cryptobot")
 
     if payment_methods and payment_methods.get("tonconnect"):
         btn_text = "🪙 TON Connect"

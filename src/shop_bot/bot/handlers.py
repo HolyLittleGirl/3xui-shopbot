@@ -170,73 +170,50 @@ async def _create_cryptobot_invoice(
     description: str,
     state_data: dict
 ) -> str | None:
-    """Create a CryptoBot invoice and return the payment URL.
-    
-    NOTE: CryptoBot API (pay.crypt.bot) is currently disabled.
-    This function falls back to Heleket for crypto payments.
-    """
+    """Create a CryptoBot invoice using CryptoBot API directly."""
     try:
         cryptobot_token = get_setting("cryptobot_token")
         if not cryptobot_token:
             logger.error("CryptoBot payment failed: token is not set")
             return None
 
-        # CryptoBot API is disabled, redirect to Heleket
-        # Heleket also accepts crypto payments
-        logger.warning("CryptoBot API is disabled, falling back to Heleket")
+        # CryptoBot API endpoint (Mainnet)
+        api_url = "https://pay.crypt.bot/api/createInvoice"
         
-        # Try Heleket instead
-        heleket_merchant = get_setting("heleket_merchant_id")
-        heleket_api_key = get_setting("heleket_api_key")
-        
-        if not heleket_merchant or not heleket_api_key:
-            logger.error("Cannot fallback to Heleket: credentials not set")
-            return None
-        
-        # Use Heleket API
-        api_url = "https://api.heleket.com/v1/payment"
-        
-        metadata = {
-            "user_id": user_id,
-            "amount_rub": amount_rub,
-            "action": state_data.get("action", "purchase"),
-            "plan_id": state_data.get("plan_id"),
-            "key_id": state_data.get("key_id"),
-        }
-        
+        # Prepare metadata/payload
         payload = {
-            "merchantId": heleket_merchant,
             "amount": amount_rub,
-            "currency": "RUB",
+            "currency_type": "fiat",
+            "fiat": "RUB",
             "description": description,
-            "returnUrl": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
+            "payload": json.dumps(state_data),
+            "paid_btn_name": "openBot",
+            "paid_btn_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
         }
-        
-        # Generate Heleket signature
-        sorted_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        base64_encoded = base64.b64encode(sorted_payload.encode()).decode()
-        raw_string = f"{base64_encoded}{heleket_api_key}"
-        sign = hashlib.md5(raw_string.encode()).hexdigest()
         
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {sign}",
+            "Crypto-Pay-API-Token": cryptobot_token,
         }
         
         async with aiohttp.ClientSession() as session:
             async with session.post(api_url, json=payload, headers=headers) as response:
                 if response.status == 200:
                     result = await response.json()
-                    payment_url = result.get("paymentUrl")
-                    if payment_url:
-                        logger.info(f"Heleket (CryptoBot fallback) invoice created for user {user_id}, amount: {amount_rub} RUB")
-                        return payment_url
-                error_text = await response.text()
-                logger.error(f"Heleket fallback error: {response.status} - {error_text}")
+                    if result.get("ok"):
+                        invoice_url = result.get("result", {}).get("bot_invoice_url")
+                        if invoice_url:
+                            logger.info(f"CryptoBot invoice created for user {user_id}, amount: {amount_rub} RUB")
+                            return invoice_url
+                        logger.error(f"CryptoBot API returned no invoice_url: {result}")
+                    else:
+                        logger.error(f"CryptoBot API error: {result}")
+                else:
+                    error_text = await response.text()
+                    logger.error(f"CryptoBot API error ({response.status}): {error_text}")
                 return None
-                
     except Exception as e:
-        logger.error(f"Failed to create CryptoBot/Heleket invoice: {e}", exc_info=True)
+        logger.error(f"Failed to create CryptoBot invoice: {e}", exc_info=True)
         return None
 
 async def show_main_menu(message: types.Message, edit_message: bool = False):
@@ -1914,18 +1891,6 @@ def get_user_router() -> Router:
         if not cryptobot_token:
             logger.error(f"CryptoBot token is not set for user {user_id}")
             await callback.message.edit_text("❌ Оплата криптовалютой временно недоступна. (Администратор не указал токен).")
-            await state.clear()
-            return
-
-        # Проверяем наличие Heleket для fallback (CryptoBot API отключен)
-        heleket_merchant = get_setting('heleket_merchant_id')
-        heleket_api_key = get_setting('heleket_api_key')
-        if not heleket_merchant or not heleket_api_key:
-            logger.error(f"Heleket credentials not set for CryptoBot fallback for user {user_id}")
-            await callback.message.edit_text(
-                "❌ Оплата криптовалютой временно недоступна.\n\n"
-                "CryptoBot API отключен. Для приёма криптовалюты настройте Heleket в разделе Настройки → Платежи."
-            )
             await state.clear()
             return
 
