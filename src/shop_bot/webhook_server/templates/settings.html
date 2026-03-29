@@ -336,6 +336,12 @@
                         </div>
 
                         <div class="mb-3">
+                            <label class="form-label" for="speedtest_interval_minutes">Speedtest (каждые N минут)</label>
+                            <input class="form-control pill-md" type="number" min="5" step="5" id="speedtest_interval_minutes" name="speedtest_interval_minutes" value="{{ settings.speedtest_interval_minutes or '60' }}" placeholder="60" />
+                            <div class="form-text">Минимум 5 минут. Рекомендуется 60-120 минут для экономии ресурсов.</div>
+                        </div>
+
+                        <div class="mb-3">
                           <div class="row g-2 align-items-start">
                             <div class="col-12 col-md-5">
                               <label class="form-label">Бэкап базы</label>

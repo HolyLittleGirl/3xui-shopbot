@@ -61,6 +61,8 @@ ALL_SETTINGS_KEYS = [
     "panel_brand_title",
     # Backups
     "backup_interval_days",
+    # Speedtest
+    "speedtest_interval_minutes",
     # Production mode
     "auto_start_bot"
 ]

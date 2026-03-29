@@ -20,8 +20,9 @@ notified_users = {}
 
 logger = logging.getLogger(__name__)
 
-# Запуск обоих видов измерений 3 раза в сутки (каждые 8 часов)
-SPEEDTEST_INTERVAL_SECONDS = 8 * 3600
+# Запуск speedtest - интервал настраивается через БД (по умолчанию 60 минут)
+# Значение по умолчанию будет перезаписано из БД при старте
+SPEEDTEST_INTERVAL_SECONDS = 60 * 60  # 60 минут по умолчанию
 _last_speedtests_run_at: datetime | None = None
 _last_backup_run_at: datetime | None = None
 
@@ -285,7 +286,19 @@ async def periodic_subscription_check(bot_controller: BotController):
         await asyncio.sleep(CHECK_INTERVAL_SECONDS)
 
 async def _maybe_run_periodic_speedtests():
-    global _last_speedtests_run_at
+    global _last_speedtests_run_at, SPEEDTEST_INTERVAL_SECONDS
+    
+    # Читаем интервал из БД (в минутах)
+    interval_minutes = database.get_setting("speedtest_interval_minutes")
+    try:
+        interval_minutes = int(interval_minutes) if interval_minutes else 60
+        if interval_minutes <= 0:
+            interval_minutes = 60  # минимум 1 минута
+    except (ValueError, TypeError):
+        interval_minutes = 60
+    
+    SPEEDTEST_INTERVAL_SECONDS = interval_minutes * 60
+    
     now = datetime.now()
     if _last_speedtests_run_at and (now - _last_speedtests_run_at).total_seconds() < SPEEDTEST_INTERVAL_SECONDS:
         return

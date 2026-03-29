@@ -192,6 +192,8 @@ def initialize_db():
                 "referral_on_start_referrer_amount": "20",
                 # Backups
                 "backup_interval_days": "1",
+                # Speedtest
+                "speedtest_interval_minutes": "60",
                 # Production mode
                 "auto_start_bot": "false",
                 # Legal pages (internal URLs by default)
