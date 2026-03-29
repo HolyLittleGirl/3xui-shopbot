@@ -307,16 +307,26 @@ def create_payment_method_keyboard(
             builder.button(text=btn_text, callback_data="pay_yookassa")
         else:
             builder.button(text=btn_text, callback_data="pay_yookassa")
+    
+    # Heleket - показываем только если настроен
     if payment_methods and payment_methods.get("heleket"):
-        btn_text = "💎 Криптовалюта"
-        if price is not None:
-            btn_text += f" ({price:.0f} RUB)"
-        builder.button(text=btn_text, callback_data="pay_heleket")
+        heleket_merchant = get_setting("heleket_merchant_id")
+        heleket_api_key = get_setting("heleket_api_key")
+        if heleket_merchant and heleket_api_key:
+            btn_text = "💳 Heleket (карты/крипта)"
+            if price is not None:
+                btn_text += f" ({price:.0f} RUB)"
+            builder.button(text=btn_text, callback_data="pay_heleket")
+    
+    # CryptoBot - показываем только если настроен
     if payment_methods and payment_methods.get("cryptobot"):
-        btn_text = "🤖 CryptoBot"
-        if price is not None:
-            btn_text += f" ({price:.0f} RUB)"
-        builder.button(text=btn_text, callback_data="pay_cryptobot")
+        cryptobot_token = get_setting("cryptobot_token")
+        if cryptobot_token:
+            btn_text = "🤖 CryptoBot (криптовалюта)"
+            if price is not None:
+                btn_text += f" ({price:.0f} RUB)"
+            builder.button(text=btn_text, callback_data="pay_cryptobot")
+    
     if payment_methods and payment_methods.get("tonconnect"):
         btn_text = "🪙 TON Connect"
         if price is not None:
@@ -352,10 +362,20 @@ def create_topup_payment_method_keyboard(payment_methods: dict) -> InlineKeyboar
             builder.button(text="🏦 СБП / Банковская карта", callback_data="topup_pay_yookassa")
         else:
             builder.button(text="🏦 Банковская карта", callback_data="topup_pay_yookassa")
+    
+    # Heleket - показываем только если настроен
     if payment_methods and payment_methods.get("heleket"):
-        builder.button(text="💎 Криптовалюта", callback_data="topup_pay_heleket")
+        heleket_merchant = get_setting("heleket_merchant_id")
+        heleket_api_key = get_setting("heleket_api_key")
+        if heleket_merchant and heleket_api_key:
+            builder.button(text="💳 Heleket (карты/крипта)", callback_data="topup_pay_heleket")
+    
+    # CryptoBot - показываем только если настроен
     if payment_methods and payment_methods.get("cryptobot"):
-        builder.button(text="🤖 CryptoBot", callback_data="topup_pay_cryptobot")
+        cryptobot_token = get_setting("cryptobot_token")
+        if cryptobot_token:
+            builder.button(text="🤖 CryptoBot (криптовалюта)", callback_data="topup_pay_cryptobot")
+    
     if payment_methods and payment_methods.get("tonconnect"):
         builder.button(text="🪙 TON Connect", callback_data="topup_pay_tonconnect")
     if payment_methods and payment_methods.get("stars"):
