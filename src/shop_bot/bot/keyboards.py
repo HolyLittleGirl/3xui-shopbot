@@ -167,8 +167,9 @@ def create_about_keyboard(channel_url: str | None, terms_url: str | None, privac
     builder = InlineKeyboardBuilder()
     if channel_url:
         builder.button(text="📰 Наш канал", url=channel_url)
-    # Internal bot page for combined legal documents
-    builder.button(text="📄 Условия и Политика", callback_data="show_legal")
+    # Separate buttons for legal documents
+    builder.button(text="📄 Условия использования", callback_data="show_terms")
+    builder.button(text="🔒 Политика конфиденциальности", callback_data="show_privacy")
     builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
     builder.adjust(1)
     return builder.as_markup()
@@ -450,16 +451,21 @@ def create_profile_keyboard() -> InlineKeyboardMarkup:
 
 def create_welcome_keyboard(channel_url: str | None, is_subscription_forced: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+
+    # Кнопки для ознакомления с документами
+    builder.button(text="📄 Условия использования", callback_data="show_terms")
+    builder.button(text="🔒 Политика конфиденциальности", callback_data="show_privacy")
     
+    # Кнопка принятия
     if channel_url and is_subscription_forced:
         builder.button(text="📢 Перейти в канал", url=channel_url)
-        builder.button(text="✅ Я подписался", callback_data="check_subscription_and_agree")
+        builder.button(text="✅ Я подписался и принимаю", callback_data="check_subscription_and_agree")
     elif channel_url:
         builder.button(text="📢 Наш канал (не обязательно)", url=channel_url)
-        builder.button(text="✅ Принимаю условия", callback_data="check_subscription_and_agree")
+        builder.button(text="✅ Я принимаю условия", callback_data="check_subscription_and_agree")
     else:
-        builder.button(text="✅ Принимаю условия", callback_data="check_subscription_and_agree")
-        
+        builder.button(text="✅ Я принимаю условия", callback_data="check_subscription_and_agree")
+
     builder.adjust(1)
     return builder.as_markup()
 
