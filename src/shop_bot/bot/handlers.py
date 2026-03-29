@@ -754,7 +754,7 @@ def get_user_router() -> Router:
         ("📞 9️⃣ Контакты\nПоддержка — через Telegram-бот\n\n🔄 10️⃣ Изменения\nАктуальная версия всегда доступна в боте.\n\n📌 Используя сервис, вы соглашаетесь с данной Политикой.", "privacy"),
     ]
 
-    def _create_legal_keyboard(self, doc_type: str, pages: list, current: int) -> InlineKeyboardMarkup:
+    def _create_legal_keyboard(doc_type: str, pages: list, current: int) -> InlineKeyboardMarkup:
         builder = InlineKeyboardBuilder()
         if current > 0:
             builder.button(text="⬅️ Назад", callback_data=f"legal_prev_{doc_type}_{current}")
@@ -773,8 +773,8 @@ def get_user_router() -> Router:
     async def show_terms_handler(callback: types.CallbackQuery):
         await callback.answer()
         await callback.message.edit_text(
-            self.TERMS_PAGES[0][0],
-            reply_markup=self._create_legal_keyboard("terms", self.TERMS_PAGES, 0)
+            TERMS_PAGES[0][0],
+            reply_markup=_create_legal_keyboard("terms", TERMS_PAGES, 0)
         )
 
     @user_router.callback_query(F.data == "show_privacy")
@@ -782,8 +782,8 @@ def get_user_router() -> Router:
     async def show_privacy_handler(callback: types.CallbackQuery):
         await callback.answer()
         await callback.message.edit_text(
-            self.PRIVACY_PAGES[0][0],
-            reply_markup=self._create_legal_keyboard("privacy", self.PRIVACY_PAGES, 0)
+            PRIVACY_PAGES[0][0],
+            reply_markup=_create_legal_keyboard("privacy", PRIVACY_PAGES, 0)
         )
 
     @user_router.callback_query(F.data.startswith("legal_next_"))
@@ -794,11 +794,11 @@ def get_user_router() -> Router:
         doc_type = parts[2]
         current = int(parts[3])
         next_page = current + 1
-        pages = self.TERMS_PAGES if doc_type == "terms" else self.PRIVACY_PAGES
+        pages = TERMS_PAGES if doc_type == "terms" else PRIVACY_PAGES
         if next_page < len(pages):
             await callback.message.edit_text(
                 pages[next_page][0],
-                reply_markup=self._create_legal_keyboard(doc_type, pages, next_page)
+                reply_markup=_create_legal_keyboard(doc_type, pages, next_page)
             )
 
     @user_router.callback_query(F.data.startswith("legal_prev_"))
@@ -809,11 +809,11 @@ def get_user_router() -> Router:
         doc_type = parts[2]
         current = int(parts[3])
         prev_page = current - 1
-        pages = self.TERMS_PAGES if doc_type == "terms" else self.PRIVACY_PAGES
+        pages = TERMS_PAGES if doc_type == "terms" else PRIVACY_PAGES
         if prev_page >= 0:
             await callback.message.edit_text(
                 pages[prev_page][0],
-                reply_markup=self._create_legal_keyboard(doc_type, pages, prev_page)
+                reply_markup=_create_legal_keyboard(doc_type, pages, prev_page)
             )
 
     @user_router.callback_query(F.data == "accept_terms")
