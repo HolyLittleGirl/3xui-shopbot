@@ -342,7 +342,7 @@ def create_payment_method_keyboard(
         logger.info(f"Creating TON button with callback_data: '{callback_data_ton}'")
         builder.button(text=btn_text, callback_data=callback_data_ton)
     if payment_methods and payment_methods.get("stars"):
-        btn_text = "⭐ Telegram Stars"
+        btn_text = "⭐ Telegram Stars (Карты РФ и SberPay)"
         if price_stars is not None and price_stars > 0:
             btn_text += f" - {price_stars} ⭐"
         builder.button(text=btn_text, callback_data="pay_stars")
@@ -386,7 +386,7 @@ def create_topup_payment_method_keyboard(payment_methods: dict) -> InlineKeyboar
     if payment_methods and payment_methods.get("tonconnect"):
         builder.button(text="🪙 TON Connect", callback_data="topup_pay_tonconnect")
     if payment_methods and payment_methods.get("stars"):
-        builder.button(text="⭐ Telegram Stars", callback_data="topup_pay_stars")
+        builder.button(text="⭐ Telegram Stars (Карты РФ и SberPay)", callback_data="topup_pay_stars")
 
     builder.button(text="⬅️ Назад", callback_data="show_profile")
     builder.adjust(1)
