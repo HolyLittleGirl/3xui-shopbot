@@ -1917,6 +1917,18 @@ def get_user_router() -> Router:
             await state.clear()
             return
 
+        # Проверяем наличие Heleket для fallback (CryptoBot API отключен)
+        heleket_merchant = get_setting('heleket_merchant_id')
+        heleket_api_key = get_setting('heleket_api_key')
+        if not heleket_merchant or not heleket_api_key:
+            logger.error(f"Heleket credentials not set for CryptoBot fallback for user {user_id}")
+            await callback.message.edit_text(
+                "❌ Оплата криптовалютой временно недоступна.\n\n"
+                "CryptoBot API отключен. Для приёма криптовалюты настройте Heleket в разделе Настройки → Платежи."
+            )
+            await state.clear()
+            return
+
         plan_id = data.get('plan_id')
         plan = get_plan_by_id(plan_id)
         if not plan:

@@ -321,14 +321,21 @@ def create_payment_method_keyboard(
                 btn_text += f" ({price:.0f} RUB)"
             builder.button(text=btn_text, callback_data="pay_heleket")
 
-    # CryptoBot - показываем только если настроен
+    # CryptoBot - показываем только если настроен токен
+    # NOTE: CryptoBot API отключен, кнопка будет использовать Heleket как fallback
     if payment_methods and payment_methods.get("cryptobot"):
         cryptobot_token = get_setting("cryptobot_token")
         if cryptobot_token:
-            btn_text = "🤖 CryptoBot (криптовалюта)"
-            if price is not None:
-                btn_text += f" ({price:.0f} RUB)"
-            builder.button(text=btn_text, callback_data="pay_cryptobot")
+            # Проверяем, есть ли Heleket для fallback
+            heleket_merchant = get_setting("heleket_merchant_id")
+            heleket_api_key = get_setting("heleket_api_key")
+            
+            # Показываем кнопку только если есть fallback (Heleket)
+            if heleket_merchant and heleket_api_key:
+                btn_text = "🤖 CryptoBot (криптовалюта)"
+                if price is not None:
+                    btn_text += f" ({price:.0f} RUB)"
+                builder.button(text=btn_text, callback_data="pay_cryptobot")
 
     if payment_methods and payment_methods.get("tonconnect"):
         btn_text = "🪙 TON Connect"
