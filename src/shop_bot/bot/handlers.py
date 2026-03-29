@@ -170,15 +170,17 @@ async def _create_cryptobot_invoice(
     description: str,
     state_data: dict
 ) -> str | None:
-    """Create a CryptoBot invoice and return the payment URL."""
+    """Create a CryptoBot (CryptoPay) invoice and return the payment URL."""
     try:
         cryptobot_token = get_setting("cryptobot_token")
         if not cryptobot_token:
             logger.error("CryptoBot payment failed: token is not set")
             return None
 
-        # CryptoBot API endpoint
-        api_url = "https://pay.crypto.bot/api/invoice/create"
+        # CryptoPay API endpoint (Production)
+        # Sandbox: https://business-sandbox.cryptopay.me
+        # Production: https://business.cryptopay.me
+        api_url = "https://business.cryptopay.me/api/invoices"
 
         # Prepare metadata
         metadata = {
@@ -189,39 +191,35 @@ async def _create_cryptobot_invoice(
             "key_id": state_data.get("key_id"),
         }
 
-        # CryptoBot API payload
+        # CryptoPay API payload
         payload = {
             "amount": amount_rub,
             "currency": "RUB",
             "description": description,
-            "metadata": json.dumps(metadata),
+            "payload": json.dumps(metadata),
             "paid_btn_name": "Open Bot",
             "paid_btn_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
         }
 
         headers = {
             "Content-Type": "application/json",
-            "Authorization": cryptobot_token,
+            "Authorization": f"Bearer {cryptobot_token}",
         }
 
         async with aiohttp.ClientSession() as session:
             async with session.post(api_url, json=payload, headers=headers) as response:
-                if response.status == 200:
+                if response.status == 201:  # 201 Created
                     result = await response.json()
-                    if result.get("ok"):
-                        invoice_url = result.get("result", {}).get("invoice_url")
-                        if invoice_url:
-                            logger.info(f"CryptoBot invoice created for user {user_id}, amount: {amount_rub} RUB")
-                            return invoice_url
-                        else:
-                            logger.error(f"CryptoBot API returned no invoice_url: {result}")
-                            return None
+                    invoice_url = result.get("data", {}).get("invoice_url")
+                    if invoice_url:
+                        logger.info(f"CryptoBot invoice created for user {user_id}, amount: {amount_rub} RUB")
+                        return invoice_url
                     else:
-                        logger.error(f"CryptoBot API error: {result}")
+                        logger.error(f"CryptoBot API returned no invoice_url: {result}")
                         return None
                 else:
                     error_text = await response.text()
-                    logger.error(f"CryptoBot API error: {response.status} - {error_text}")
+                    logger.error(f"CryptoBot API error ({response.status}): {error_text}")
                     return None
     except Exception as e:
         logger.error(f"Failed to create CryptoBot invoice: {e}", exc_info=True)
