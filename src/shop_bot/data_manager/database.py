@@ -194,6 +194,8 @@ def initialize_db():
                 "backup_interval_days": "1",
                 # Speedtest
                 "speedtest_interval_minutes": "60",
+                # Timezone
+                "server_timezone": "Europe/Moscow",
                 # Production mode
                 "auto_start_bot": "false",
                 # Legal pages (internal URLs by default)

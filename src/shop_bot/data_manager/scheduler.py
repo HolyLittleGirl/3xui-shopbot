@@ -286,7 +286,7 @@ async def periodic_subscription_check(bot_controller: BotController):
         await asyncio.sleep(CHECK_INTERVAL_SECONDS)
 
 async def _maybe_run_periodic_speedtests():
-    global _last_speedtests_run_at, SPEEDTEST_INTERVAL_SECONDS
+    global _last_speedtests_run_at
     
     # Читаем интервал из БД (в минутах)
     interval_minutes = database.get_setting("speedtest_interval_minutes")
@@ -297,14 +297,15 @@ async def _maybe_run_periodic_speedtests():
     except (ValueError, TypeError):
         interval_minutes = 60
     
-    SPEEDTEST_INTERVAL_SECONDS = interval_minutes * 60
+    speedtest_interval_seconds = interval_minutes * 60
     
     now = datetime.now()
-    if _last_speedtests_run_at and (now - _last_speedtests_run_at).total_seconds() < SPEEDTEST_INTERVAL_SECONDS:
+    if _last_speedtests_run_at and (now - _last_speedtests_run_at).total_seconds() < speedtest_interval_seconds:
         return
     try:
         await _run_speedtests_for_all_hosts()
         _last_speedtests_run_at = now
+        logger.info(f"Scheduler: Speedtest завершён. Следующий запуск через {interval_minutes} мин.")
     except Exception as e:
         logger.error(f"Scheduler: Ошибка запуска speedtests: {e}", exc_info=True)
 

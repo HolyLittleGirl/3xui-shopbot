@@ -63,6 +63,8 @@ ALL_SETTINGS_KEYS = [
     "backup_interval_days",
     # Speedtest
     "speedtest_interval_minutes",
+    # Timezone
+    "server_timezone",
     # Production mode
     "auto_start_bot"
 ]
