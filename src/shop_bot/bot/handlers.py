@@ -362,19 +362,11 @@ def get_user_router() -> Router:
             await show_main_menu(message)
             return
 
-        welcome_parts = ["<b>Добро пожаловать!</b>\n"]
+        welcome_parts = ["🔐 <b>Добро пожаловать!</b>\n\n"
+            "Мы предоставляем VPN для безопасного и стабильного доступа к зарубежным сервисам 🌐\n\n"
+            "Продолжая, вы принимаете наши условия использования."]
 
-        if is_subscription_forced and channel_url:
-            welcome_parts.append("Для доступа ко всем функциям, пожалуйста, подпишитесь на наш канал.\n")
-
-        welcome_parts.append(
-            "Ознакомьтесь с документами:\n"
-            "• Нажмите «📄 Условия использования»\n"
-            "• Нажмите «🔒 Политика конфиденциальности»\n\n"
-            "После ознакомления нажмите «✅ Я принимаю условия»."
-        )
-
-        final_text = "\n".join(welcome_parts)
+        final_text = "".join(welcome_parts)
         
         await message.answer(
             final_text,
@@ -824,7 +816,7 @@ def get_user_router() -> Router:
             disable_web_page_preview=True
         )
 
-    # ========== LEGAL DOCUMENTS (SEPARATE) ==========
+    # ========== LEGAL DOCUMENTS (WELCOME FLOW) ==========
 
     TERMS_PAGES = [
         ("🔐 Условия использования\n\n1️⃣ Назначение сервиса\nСервис предоставляет защищённое соединение для повышения безопасности и конфиденциальности в сети.",),
@@ -848,35 +840,111 @@ def get_user_router() -> Router:
         ("⏳ 8️⃣ Хранение\nДанные хранятся на время использования сервиса.\n\n🔄 9️⃣ Изменения\nАктуальная версия всегда доступна в боте.",),
     ]
 
-    def _create_terms_keyboard(current: int) -> InlineKeyboardMarkup:
+    def _create_terms_keyboard_welcome(current: int) -> InlineKeyboardMarkup:
+        """Keyboard for terms during onboarding."""
         builder = InlineKeyboardBuilder()
         total = len(TERMS_PAGES)
         if current > 0:
-            builder.button(text="⬅️ Назад", callback_data=f"terms_prev_{current}")
+            builder.button(text="⬅️ Назад", callback_data=f"terms_welcome_prev_{current}")
         if current < total - 1:
-            builder.button(text="Далее ➡️", callback_data=f"terms_next_{current}")
-        else:
-            builder.button(text="✅ Принять", callback_data="accept_terms")
-        builder.button(text="❌ Закрыть", callback_data="back_to_main_menu")
-        builder.adjust(2 if current < total - 1 else 1)
+            builder.button(text="Далее ➡️", callback_data=f"terms_welcome_next_{current}")
+        builder.button(text="⬅️ Назад к приветствию", callback_data="back_to_welcome")
+        builder.adjust(2 if current > 0 or current < total - 1 else 1)
         return builder.as_markup()
 
-    def _create_privacy_keyboard(current: int) -> InlineKeyboardMarkup:
+    def _create_privacy_keyboard_welcome(current: int) -> InlineKeyboardMarkup:
+        """Keyboard for privacy during onboarding."""
         builder = InlineKeyboardBuilder()
         total = len(PRIVACY_PAGES)
         if current > 0:
-            builder.button(text="⬅️ Назад", callback_data=f"privacy_prev_{current}")
+            builder.button(text="⬅️ Назад", callback_data=f"privacy_welcome_prev_{current}")
         if current < total - 1:
-            builder.button(text="Далее ➡️", callback_data=f"privacy_next_{current}")
-        else:
-            builder.button(text="✅ Принять", callback_data="accept_privacy")
-        builder.button(text="❌ Закрыть", callback_data="back_to_main_menu")
-        builder.adjust(2 if current < total - 1 else 1)
+            builder.button(text="Далее ➡️", callback_data=f"privacy_welcome_next_{current}")
+        builder.button(text="⬅️ Назад к приветствию", callback_data="back_to_welcome")
+        builder.adjust(2 if current > 0 or current < total - 1 else 1)
         return builder.as_markup()
+
+    @user_router.callback_query(F.data == "show_terms_welcome")
+    async def show_terms_welcome_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            TERMS_PAGES[0][0],
+            reply_markup=_create_terms_keyboard_welcome(0)
+        )
+
+    @user_router.callback_query(F.data.startswith("terms_welcome_next_"))
+    async def terms_welcome_next_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        current = int(callback.data.split("_")[-1])
+        next_page = current + 1
+        if next_page < len(TERMS_PAGES):
+            await callback.message.edit_text(
+                TERMS_PAGES[next_page][0],
+                reply_markup=_create_terms_keyboard_welcome(next_page)
+            )
+
+    @user_router.callback_query(F.data.startswith("terms_welcome_prev_"))
+    async def terms_welcome_prev_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        current = int(callback.data.split("_")[-1])
+        prev_page = current - 1
+        if prev_page >= 0:
+            await callback.message.edit_text(
+                TERMS_PAGES[prev_page][0],
+                reply_markup=_create_terms_keyboard_welcome(prev_page)
+            )
+
+    @user_router.callback_query(F.data == "show_privacy_welcome")
+    async def show_privacy_welcome_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            PRIVACY_PAGES[0][0],
+            reply_markup=_create_privacy_keyboard_welcome(0)
+        )
+
+    @user_router.callback_query(F.data.startswith("privacy_welcome_next_"))
+    async def privacy_welcome_next_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        current = int(callback.data.split("_")[-1])
+        next_page = current + 1
+        if next_page < len(PRIVACY_PAGES):
+            await callback.message.edit_text(
+                PRIVACY_PAGES[next_page][0],
+                reply_markup=_create_privacy_keyboard_welcome(next_page)
+            )
+
+    @user_router.callback_query(F.data.startswith("privacy_welcome_prev_"))
+    async def privacy_welcome_prev_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        current = int(callback.data.split("_")[-1])
+        prev_page = current - 1
+        if prev_page >= 0:
+            await callback.message.edit_text(
+                PRIVACY_PAGES[prev_page][0],
+                reply_markup=_create_privacy_keyboard_welcome(prev_page)
+            )
+
+    @user_router.callback_query(F.data == "back_to_welcome")
+    async def back_to_welcome_handler(callback: types.CallbackQuery):
+        """Return to welcome screen during onboarding."""
+        await callback.answer()
+        user_id = callback.from_user.id
+        channel_url = get_setting("channel_url")
+        is_subscription_forced = get_setting("force_subscription") == "true"
+        
+        welcome_text = "🔐 <b>Добро пожаловать!</b>\n\n" \
+            "Мы предоставляем VPN для безопасного и стабильного доступа к зарубежным сервисам 🌐\n\n" \
+            "Продолжая, вы принимаете наши условия использования."
+        
+        await callback.message.edit_text(
+            welcome_text,
+            reply_markup=keyboards.create_welcome_keyboard(channel_url, is_subscription_forced)
+        )
 
     @user_router.callback_query(F.data == "show_terms")
     @registration_required
     async def show_terms_handler(callback: types.CallbackQuery):
+        """Show terms from main menu (after onboarding)."""
         await callback.answer()
         await callback.message.edit_text(
             TERMS_PAGES[0][0],
@@ -910,6 +978,7 @@ def get_user_router() -> Router:
     @user_router.callback_query(F.data == "show_privacy")
     @registration_required
     async def show_privacy_handler(callback: types.CallbackQuery):
+        """Show privacy from main menu (after onboarding)."""
         await callback.answer()
         await callback.message.edit_text(
             PRIVACY_PAGES[0][0],
@@ -963,6 +1032,34 @@ def get_user_router() -> Router:
             "Теперь ознакомьтесь с Условиями использования и примите их.",
             reply_markup=keyboards.create_back_to_menu_keyboard()
         )
+
+    def _create_terms_keyboard(current: int) -> InlineKeyboardMarkup:
+        """Keyboard for terms from main menu (after onboarding)."""
+        builder = InlineKeyboardBuilder()
+        total = len(TERMS_PAGES)
+        if current > 0:
+            builder.button(text="⬅️ Назад", callback_data=f"terms_prev_{current}")
+        if current < total - 1:
+            builder.button(text="Далее ➡️", callback_data=f"terms_next_{current}")
+        else:
+            builder.button(text="✅ Принять", callback_data="accept_terms")
+        builder.button(text="❌ Закрыть", callback_data="back_to_main_menu")
+        builder.adjust(2 if current < total - 1 else 1)
+        return builder.as_markup()
+
+    def _create_privacy_keyboard(current: int) -> InlineKeyboardMarkup:
+        """Keyboard for privacy from main menu (after onboarding)."""
+        builder = InlineKeyboardBuilder()
+        total = len(PRIVACY_PAGES)
+        if current > 0:
+            builder.button(text="⬅️ Назад", callback_data=f"privacy_prev_{current}")
+        if current < total - 1:
+            builder.button(text="Далее ➡️", callback_data=f"privacy_next_{current}")
+        else:
+            builder.button(text="✅ Принять", callback_data="accept_privacy")
+        builder.button(text="❌ Закрыть", callback_data="back_to_main_menu")
+        builder.adjust(2 if current < total - 1 else 1)
+        return builder.as_markup()
 
     @user_router.callback_query(F.data == "show_help")
     @registration_required

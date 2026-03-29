@@ -453,19 +453,26 @@ def create_welcome_keyboard(channel_url: str | None, is_subscription_forced: boo
     builder = InlineKeyboardBuilder()
 
     # Кнопки для ознакомления с документами
-    builder.button(text="📄 Условия использования", callback_data="show_terms")
-    builder.button(text="🔒 Политика конфиденциальности", callback_data="show_privacy")
-    
+    builder.button(text="📄 Условия использования", callback_data="show_terms_welcome")
+    builder.button(text="🔒 Политика конфиденциальности", callback_data="show_privacy_welcome")
+
     # Кнопка принятия
     if channel_url and is_subscription_forced:
         builder.button(text="📢 Перейти в канал", url=channel_url)
-        builder.button(text="✅ Я подписался и принимаю", callback_data="check_subscription_and_agree")
+        builder.button(text="✅ Принимаю", callback_data="check_subscription_and_agree")
     elif channel_url:
         builder.button(text="📢 Наш канал (не обязательно)", url=channel_url)
-        builder.button(text="✅ Я принимаю условия", callback_data="check_subscription_and_agree")
+        builder.button(text="✅ Принимаю", callback_data="check_subscription_and_agree")
     else:
-        builder.button(text="✅ Я принимаю условия", callback_data="check_subscription_and_agree")
+        builder.button(text="✅ Принимаю", callback_data="check_subscription_and_agree")
 
+    builder.adjust(1)
+    return builder.as_markup()
+
+def create_welcome_back_keyboard() -> InlineKeyboardMarkup:
+    """Keyboard for terms/privacy pages during onboarding - returns to welcome."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="⬅️ Назад к приветствию", callback_data="back_to_welcome")
     builder.adjust(1)
     return builder.as_markup()
 
