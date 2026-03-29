@@ -170,57 +170,84 @@ async def _create_cryptobot_invoice(
     description: str,
     state_data: dict
 ) -> str | None:
-    """Create a CryptoBot (CryptoPay) invoice and return the payment URL."""
+    """Create a CryptoBot invoice and return the payment URL.
+    
+    Supports both API versions:
+    - CryptoBot API v1: pay.crypto.bot (token format XXXX:YYYY)
+    - CryptoPay API v2: business.cryptopay.me (Bearer token)
+    """
     try:
         cryptobot_token = get_setting("cryptobot_token")
         if not cryptobot_token:
             logger.error("CryptoBot payment failed: token is not set")
             return None
 
-        # CryptoPay API endpoint (Production)
-        # Sandbox: https://business-sandbox.cryptopay.me
-        # Production: https://business.cryptopay.me
-        api_url = "https://business.cryptopay.me/api/invoices"
-
-        # Prepare metadata
-        metadata = {
-            "user_id": user_id,
-            "amount_rub": amount_rub,
-            "action": state_data.get("action", "purchase"),
-            "plan_id": state_data.get("plan_id"),
-            "key_id": state_data.get("key_id"),
-        }
-
-        # CryptoPay API payload
-        payload = {
-            "amount": amount_rub,
-            "currency": "RUB",
-            "description": description,
-            "payload": json.dumps(metadata),
-            "paid_btn_name": "Open Bot",
-            "paid_btn_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
-        }
-
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {cryptobot_token}",
-        }
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(api_url, json=payload, headers=headers) as response:
-                if response.status == 201:  # 201 Created
-                    result = await response.json()
-                    invoice_url = result.get("data", {}).get("invoice_url")
-                    if invoice_url:
-                        logger.info(f"CryptoBot invoice created for user {user_id}, amount: {amount_rub} RUB")
-                        return invoice_url
+        # Determine API version by token format
+        # v1 tokens look like: 558400:AAq... (Telegram-style)
+        # v2 tokens are: Bearer-style long strings
+        is_v1 = ":" in cryptobot_token
+        
+        if is_v1:
+            # CryptoBot API v1 (pay.crypto.bot)
+            api_url = "https://pay.crypto.bot/api/invoice/create"
+            
+            payload = {
+                "amount": amount_rub,
+                "currency": "RUB",
+                "description": description,
+                "metadata": json.dumps(state_data),
+                "paid_btn_name": "Open Bot",
+                "paid_btn_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
+            }
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Crypto-Pay-API-Secret": cryptobot_token,
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload, headers=headers) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get("ok"):
+                            invoice_url = result.get("result", {}).get("invoice_url")
+                            if invoice_url:
+                                logger.info(f"CryptoBot v1 invoice created for user {user_id}, amount: {amount_rub} RUB")
+                                return invoice_url
+                        logger.error(f"CryptoBot v1 API error: {result}")
                     else:
-                        logger.error(f"CryptoBot API returned no invoice_url: {result}")
-                        return None
-                else:
+                        error_text = await response.text()
+                        logger.error(f"CryptoBot v1 API error ({response.status}): {error_text}")
+        else:
+            # CryptoPay API v2 (business.cryptopay.me)
+            api_url = "https://business.cryptopay.me/api/invoices"
+            
+            payload = {
+                "amount": amount_rub,
+                "currency": "RUB",
+                "description": description,
+                "payload": json.dumps(state_data),
+                "paid_btn_name": "Open Bot",
+                "paid_btn_url": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
+            }
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {cryptobot_token}",
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, json=payload, headers=headers) as response:
+                    if response.status == 201:
+                        result = await response.json()
+                        invoice_url = result.get("data", {}).get("invoice_url")
+                        if invoice_url:
+                            logger.info(f"CryptoPay v2 invoice created for user {user_id}, amount: {amount_rub} RUB")
+                            return invoice_url
                     error_text = await response.text()
-                    logger.error(f"CryptoBot API error ({response.status}): {error_text}")
-                    return None
+                    logger.error(f"CryptoPay v2 API error ({response.status}): {error_text}")
+        
+        return None
     except Exception as e:
         logger.error(f"Failed to create CryptoBot invoice: {e}", exc_info=True)
         return None
