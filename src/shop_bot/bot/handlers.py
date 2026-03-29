@@ -384,19 +384,8 @@ def get_user_router() -> Router:
         channel_url = get_setting("channel_url")
         is_subscription_forced = get_setting("force_subscription") == "true"
 
-        # Проверяем принятие обоих документов
-        user_data = get_user(user_id)
-        terms_accepted = user_data.get('agreed_to_terms') if user_data else False
-        privacy_accepted = user_data.get('agreed_to_privacy') if user_data else False
-
-        if not terms_accepted or not privacy_accepted:
-            await callback.answer(
-                "Сначала ознакомьтесь и примите:\n"
-                "• Условия использования\n"
-                "• Политику конфиденциальности",
-                show_alert=True
-            )
-            return
+        # Автоматически принимаем документы при нажатии кнопки
+        set_legal_accepted(user_id)
 
         if not is_subscription_forced or not channel_url:
             await process_successful_onboarding(callback, state)
