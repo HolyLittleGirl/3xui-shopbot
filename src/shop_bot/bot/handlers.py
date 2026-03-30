@@ -145,9 +145,12 @@ async def _create_heleket_payment_request(
             "returnUrl": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
         }
 
-        # Generate signature: MD5(API_KEY + MERCHANT_ID + AMOUNT + CURRENCY)
-        sign_string = f"{api_key}{merchant_id}{price}RUB"
-        sign = hashlib.md5(sign_string.encode()).hexdigest()
+        # Generate signature per Heleket docs:
+        # MD5(base64(json_payload) + API_KEY)
+        json_payload = json.dumps(payload, separators=(',', ':'))
+        b64_payload = base64.b64encode(json_payload.encode('utf-8')).decode('utf-8')
+        sign_string = b64_payload + api_key
+        sign = hashlib.md5(sign_string.encode('utf-8')).hexdigest()
 
         headers = {
             "Content-Type": "application/json",
