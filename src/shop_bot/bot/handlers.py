@@ -180,7 +180,13 @@ async def _create_heleket_payment_request(
             async with session.post(api_url, json=payload, headers=headers) as response:
                 if response.status == 200:
                     result = await response.json()
-                    payment_url = result.get("paymentUrl") or result.get("url")
+                    # URL can be at top level or inside result object
+                    payment_url = (
+                        result.get("paymentUrl") or 
+                        result.get("url") or
+                        (result.get("result") or {}).get("url") or
+                        (result.get("result") or {}).get("paymentUrl")
+                    )
                     if payment_url:
                         logger.info(f"Heleket payment created for user {user_id}, amount: {price} RUB, order: {order_id}")
                         return payment_url
