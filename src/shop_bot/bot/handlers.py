@@ -112,8 +112,14 @@ async def _create_heleket_payment_request(
     host_name: str,
     state_data: dict
 ) -> str | None:
-    """Create a Heleket payment request and return the payment URL."""
+    """Create a Heleket payment request and return the payment URL.
+    
+    Heleket API: https://api.heleket.com/
+    Signature: MD5(base64(json_payload) + API_KEY)
+    """
     try:
+        import uuid
+        
         merchant_id = get_setting("heleket_merchant_id")
         api_key = get_setting("heleket_api_key")
 
@@ -121,7 +127,10 @@ async def _create_heleket_payment_request(
             logger.error("Heleket payment failed: missing merchant_id or api_key")
             return None
 
-        # Prepare metadata
+        # Generate unique order_id
+        order_id = str(uuid.uuid4())
+        
+        # Prepare metadata for description
         metadata = {
             "user_id": user_id,
             "price": price,
@@ -136,42 +145,44 @@ async def _create_heleket_payment_request(
         # Heleket API endpoint
         api_url = "https://api.heleket.com/v1/payment"
 
-        # Prepare request payload
+        # IMPORTANT: amount must be STRING with 2 decimal places!
+        # JSON must be with default separators (spaces after colons/commas)
         payload = {
             "merchantId": merchant_id,
-            "amount": price,
+            "amount": f"{price:.2f}",  # STRING: "100.00"
             "currency": "RUB",
-            "description": json.dumps(metadata),
+            "order_id": order_id,  # Required!
+            "description": json.dumps(metadata),  # Metadata as JSON string
             "returnUrl": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
         }
 
-        # Generate signature per Heleket docs:
+        # Generate signature per Heleket documentation:
         # MD5(base64(json_payload) + API_KEY)
-        json_payload = json.dumps(payload, separators=(',', ':'))
+        # IMPORTANT: Use json.dumps() WITHOUT separators (default with spaces)
+        json_payload = json.dumps(payload)
         b64_payload = base64.b64encode(json_payload.encode('utf-8')).decode('utf-8')
         sign_string = b64_payload + api_key
         sign = hashlib.md5(sign_string.encode('utf-8')).hexdigest()
         
-        # DEBUG: Log signature details
-        logger.info(f"Heleket DEBUG: merchant_id={merchant_id}")
-        logger.info(f"Heleket DEBUG: api_key={api_key[:8]}...{api_key[-4:]}")
-        logger.info(f"Heleket DEBUG: json_payload={json_payload}")
-        logger.info(f"Heleket DEBUG: b64_payload={b64_payload}")
-        logger.info(f"Heleket DEBUG: sign_string={sign_string}")
-        logger.info(f"Heleket DEBUG: sign={sign}")
+        logger.info(f"Heleket: Created payload with order_id={order_id}, amount={price:.2f}")
+        logger.debug(f"Heleket: JSON payload: {json_payload}")
+        logger.debug(f"Heleket: Base64: {b64_payload[:50]}...")
+        logger.debug(f"Heleket: Signature: {sign}")
 
+        # CORRECT headers per Heleket documentation
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {sign}",
+            "merchant": merchant_id,  # UUID мерчанта
+            "sign": sign,             # Подпись
         }
 
         async with aiohttp.ClientSession() as session:
             async with session.post(api_url, json=payload, headers=headers) as response:
                 if response.status == 200:
                     result = await response.json()
-                    payment_url = result.get("paymentUrl")
+                    payment_url = result.get("paymentUrl") or result.get("url")
                     if payment_url:
-                        logger.info(f"Heleket payment created for user {user_id}, amount: {price} RUB")
+                        logger.info(f"Heleket payment created for user {user_id}, amount: {price} RUB, order: {order_id}")
                         return payment_url
                     else:
                         logger.error(f"Heleket API returned no paymentUrl: {result}")

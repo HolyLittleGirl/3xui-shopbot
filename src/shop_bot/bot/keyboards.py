@@ -315,15 +315,15 @@ def create_payment_method_keyboard(
         else:
             builder.button(text=btn_text, callback_data="pay_yookassa")
 
-    # Heleket - временно отключен (API не работает)
-    # if payment_methods and payment_methods.get("heleket"):
-    #     heleket_merchant = get_setting("heleket_merchant_id")
-    #     heleket_api_key = get_setting("heleket_api_key")
-    #     if heleket_merchant and heleket_api_key:
-    #         btn_text = "💳 Heleket (карты/крипта)"
-    #         if price is not None:
-    #             btn_text += f" - {price:.0f} RUB"
-    #         builder.button(text=btn_text, callback_data="pay_heleket")
+    # Heleket - показываем только если настроен
+    if payment_methods and payment_methods.get("heleket"):
+        heleket_merchant = get_setting("heleket_merchant_id")
+        heleket_api_key = get_setting("heleket_api_key")
+        if heleket_merchant and heleket_api_key:
+            btn_text = "💳 Heleket (карты/крипта)"
+            if price is not None:
+                btn_text += f" - {price:.0f} RUB"
+            builder.button(text=btn_text, callback_data="pay_heleket")
 
     # CryptoBot - показываем только если настроен токен
     if payment_methods and payment_methods.get("cryptobot"):
@@ -370,13 +370,11 @@ def create_topup_payment_method_keyboard(payment_methods: dict) -> InlineKeyboar
         else:
             builder.button(text="🏦 Банковская карта", callback_data="topup_pay_yookassa")
     
-    # Heleket - показываем только если настроен
-    # Heleket - временно отключен (API не работает)
-    # if payment_methods and payment_methods.get("heleket"):
-    #     heleket_merchant = get_setting("heleket_merchant_id")
-    #     heleket_api_key = get_setting("heleket_api_key")
-    #     if heleket_merchant and heleket_api_key:
-    #         builder.button(text="💳 Heleket (карты/крипта)", callback_data="topup_pay_heleket")
+    if payment_methods and payment_methods.get("heleket"):
+        heleket_merchant = get_setting("heleket_merchant_id")
+        heleket_api_key = get_setting("heleket_api_key")
+        if heleket_merchant and heleket_api_key:
+            builder.button(text="💳 Heleket (карты/крипта)", callback_data="topup_pay_heleket")
     
     # CryptoBot - показываем только если настроен
     if payment_methods and payment_methods.get("cryptobot"):
