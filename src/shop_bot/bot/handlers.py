@@ -1740,7 +1740,8 @@ def get_user_router() -> Router:
         await callback.answer()
         await callback.message.edit_text(
             "<b>Подключение на Windows</b>\n\n"
-            "1. <b>Установите приложение <a href=\"https://github.com/hiddify/hiddify-app/releases\">Hiddify</a>:</b> Загрузите Hiddify с <a href=\"https://github.com/hiddify/hiddify-app/releases\">GitHub Releases</a>. Выберите версию <code>Hiddify-Windows-Setup-x64.exe</code> (или <code>portable</code> для портативной версии).\n"
+            "<b>Вариант 1: Hiddify (рекомендуется)</b>\n"
+            "1. <b>Установите приложение <a href=\"https://hiddify.com/\">Hiddify</a>:</b> Загрузите с <a href=\"https://hiddify.com/\">официального сайта</a> или <a href=\"https://github.com/hiddify/hiddify-app/releases\">зеркала на GitHub</a>. Выберите версию <code>Setup-x64.exe</code> (установщик) или <code>Portable-x64.exe</code> (портативная).\n"
             "2. <b>Установите приложение:</b> Запустите установщик и следуйте инструкциям (или распакуйте портативную версию).\n"
             "3. <b>Запустите Hiddify:</b> Откройте приложение.\n"
             "4. <b>Скопируйте свой ключ (vless://):</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
@@ -1750,7 +1751,17 @@ def get_user_router() -> Router:
             "   • Ключ автоматически добавится в список.\n"
             "6. <b>Выберите сервер:</b> Нажмите на добавленный сервер в списке.\n"
             "7. <b>Подключитесь к VPN:</b> Нажмите большую кнопку подключения в центре экрана.\n"
-            "8. <b>Проверьте подключение:</b> Откройте браузер и проверьте IP на https://whatismyipaddress.com/. Он должен отличаться от вашего реального IP.",
+            "8. <b>Проверьте подключение:</b> Откройте браузер и проверьте IP на https://whatismyipaddress.com/. Он должен отличаться от вашего реального IP.\n\n"
+            "<b>Вариант 2: V2RayTun</b>\n"
+            "1. <b>Установите приложение <a href=\"https://v2raytun.com/\">V2RayTun</a>:</b> Загрузите с <a href=\"https://v2raytun.com/\">официального сайта</a>.\n"
+            "2. <b>Установите и запустите:</b> Следуйте инструкциям установщика.\n"
+            "3. <b>Скопируйте свой ключ (vless://):</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
+            "4. <b>Импортируйте конфигурацию:</b>\n"
+            "   • Откройте V2RayTun.\n"
+            "   • Нажмите «+» (Добавить).\n"
+            "   • Выберите «Импортировать из буфера обмена».\n"
+            "5. <b>Подключитесь:</b> Нажмите кнопку подключения.\n"
+            "6. <b>Проверьте подключение:</b> Проверьте IP на https://whatismyipaddress.com/.",
         reply_markup=keyboards.create_howto_vless_keyboard(),
         disable_web_page_preview=True
     )
@@ -1761,9 +1772,10 @@ def get_user_router() -> Router:
         await callback.answer()
         await callback.message.edit_text(
             "<b>Подключение на Linux</b>\n\n"
-            "1. <b>Установите приложение <a href=\"https://github.com/hiddify/hiddify-app/releases\">Hiddify</a>:</b> Загрузите Hiddify с <a href=\"https://github.com/hiddify/hiddify-app/releases\">GitHub Releases</a>. Выберите версию для Linux (<code>.deb</code> для Debian/Ubuntu или <code>.rpm</code> для Fedora).\n"
-            "2. <b>Установите приложение:</b> Установите пакет через менеджер пакетов (<code>sudo apt install ./hiddify.deb</code> или <code>sudo dnf install hiddify.rpm</code>). Или используйте портативную версию (<code>AppImage</code>).\n"
-            "3. <b>Запустите Hiddify:</b> Откройте приложение из меню приложений или выполните <code>hiddify</code> в терминале.\n"
+            "<b>Вариант 1: Hiddify (рекомендуется)</b>\n"
+            "1. <b>Установите приложение <a href=\"https://hiddify.com/\">Hiddify</a>:</b> Загрузите с <a href=\"https://hiddify.com/\">официального сайта</a> или <a href=\"https://github.com/hiddify/hiddify-app/releases\">зеркала на GitHub</a>. Выберите версию <code>.deb</code> (Debian/Ubuntu), <code>.rpm</code> (Fedora) или <code>AppImage</code> (портативная).\n"
+            "2. <b>Установите приложение:</b> Установите пакет (<code>sudo apt install ./hiddify.deb</code> или <code>sudo dnf install hiddify.rpm</code>). Для AppImage: <code>chmod +x hiddify.AppImage && ./hiddify.AppImage</code>.\n"
+            "3. <b>Запустите Hiddify:</b> Откройте приложение из меню или терминала.\n"
             "4. <b>Скопируйте свой ключ (vless://):</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
             "5. <b>Импортируйте конфигурацию:</b>\n"
             "   • В Hiddify нажмите кнопку «Добавить профиль» (или «+»).  \n"
@@ -1771,7 +1783,17 @@ def get_user_router() -> Router:
             "   • Ключ автоматически добавится в список.\n"
             "6. <b>Выберите сервер:</b> Нажмите на добавленный сервер в списке.\n"
             "7. <b>Подключитесь к VPN:</b> Нажмите большую кнопку подключения в центре экрана.\n"
-            "8. <b>Проверьте подключение:</b> Откройте браузер и проверьте IP на https://whatismyipaddress.com/. Он должен отличаться от вашего реального IP.",
+            "8. <b>Проверьте подключение:</b> Откройте браузер и проверьте IP на https://whatismyipaddress.com/. Он должен отличаться от вашего реального IP.\n\n"
+            "<b>Вариант 2: V2RayTun</b>\n"
+            "1. <b>Установите приложение <a href=\"https://v2raytun.com/\">V2RayTun</a>:</b> Загрузите с <a href=\"https://v2raytun.com/\">официального сайта</a> (версия для Linux).\n"
+            "2. <b>Установите и запустите:</b> Следуйте инструкциям для вашего дистрибутива.\n"
+            "3. <b>Скопируйте свой ключ (vless://):</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
+            "4. <b>Импортируйте конфигурацию:</b>\n"
+            "   • Откройте V2RayTun.\n"
+            "   • Нажмите «+» (Добавить).\n"
+            "   • Выберите «Импортировать из буфера обмена».\n"
+            "5. <b>Подключитесь:</b> Нажмите кнопку подключения.\n"
+            "6. <b>Проверьте подключение:</b> Проверьте IP на https://whatismyipaddress.com/.",
         reply_markup=keyboards.create_howto_vless_keyboard(),
         disable_web_page_preview=True
     )
