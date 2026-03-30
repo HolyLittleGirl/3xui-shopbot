@@ -46,6 +46,14 @@ def get_support_router() -> Router:
             resize_keyboard=True
         )
 
+    def _cancel_reply_kb() -> types.ReplyKeyboardMarkup:
+        return types.ReplyKeyboardMarkup(
+            keyboard=[
+                [types.KeyboardButton(text="❌ Отмена")],
+            ],
+            resize_keyboard=True
+        )
+
     def _get_latest_open_ticket(user_id: int) -> dict | None:
         try:
             tickets = get_user_tickets(user_id) or []
@@ -102,7 +110,10 @@ def get_support_router() -> Router:
                     f"У вас уже есть открытый тикет #{existing['ticket_id']}. Пожалуйста, продолжайте переписку в этом тикете. Новый тикет можно создать после его закрытия."
                 )
             else:
-                await message.answer("📝 Кратко опишите тему обращения (например, 'Проблема с подключением')")
+                await message.answer(
+                    "📝 Кратко опишите тему обращения (например, 'Проблема с подключением')\n\nНажмите «❌ Отмена» чтобы выйти.",
+                    reply_markup=_cancel_reply_kb()
+                )
                 await state.set_state(SupportDialog.waiting_for_subject)
             return
         support_text = get_setting("support_text") or "Раздел поддержки. Вы можете создать обращение или открыть существующее."
@@ -126,18 +137,42 @@ def get_support_router() -> Router:
                 f"У вас уже есть открытый тикет #{existing['ticket_id']}. Продолжайте переписку в нём. Новый тикет можно создать после закрытия текущего."
             )
         else:
-            await callback.message.edit_text("📝 Кратко опишите тему обращения (например, 'Проблема с подключением')")
+            await callback.message.edit_text(
+                "📝 Кратко опишите тему обращения (например, 'Проблема с подключением')\n\nНажмите «❌ Отмена» чтобы выйти.",
+                reply_markup=_cancel_reply_kb()
+            )
             await state.set_state(SupportDialog.waiting_for_subject)
 
     @router.message(SupportDialog.waiting_for_subject, F.chat.type == "private")
     async def support_subject_received(message: types.Message, state: FSMContext):
+        # Проверка на отмену
+        if message.text == "❌ Отмена":
+            await state.clear()
+            await message.answer(
+                "❌ Создание обращения отменено.",
+                reply_markup=_user_main_reply_kb()
+            )
+            return
+        
         subject = (message.text or "").strip()
         await state.update_data(subject=subject)
-        await message.answer("✉️ Опишите проблему максимально подробно одним сообщением.")
+        await message.answer(
+            "✉️ Опишите проблему максимально подробно одним сообщением.\n\nНажмите «❌ Отмена» чтобы выйти.",
+            reply_markup=_cancel_reply_kb()
+        )
         await state.set_state(SupportDialog.waiting_for_message)
 
     @router.message(SupportDialog.waiting_for_message, F.chat.type == "private")
     async def support_message_received(message: types.Message, state: FSMContext, bot: Bot):
+        # Проверка на отмену
+        if message.text == "❌ Отмена":
+            await state.clear()
+            await message.answer(
+                "❌ Создание обращения отменено.",
+                reply_markup=_user_main_reply_kb()
+            )
+            return
+        
         user_id = message.from_user.id
         data = await state.get_data()
         raw_subject = (data.get("subject") or "").strip()
