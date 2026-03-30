@@ -1702,7 +1702,7 @@ def get_user_router() -> Router:
         await callback.answer()
         await callback.message.edit_text(
             "<b>Подключение на Android</b>\n\n"
-            "1. <b>Установите приложение V2RayTun:</b> Загрузите и установите приложение V2RayTun из Google Play Store.\n"
+            "1. <b>Установите приложение <a href=\"https://v2raytun.com/\">V2RayTun</a>:</b> Загрузите и установите приложение V2RayTun из <a href=\"https://play.google.com/store/apps/details?id=com.v2raytun.android&pcampaignid=web_share\">Google Play Store</a>.\n"
             "2. <b>Скопируйте свой ключ (vless://)</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
             "3. <b>Импортируйте конфигурацию:</b>\n"
             "   • Откройте V2RayTun.\n"
@@ -1721,7 +1721,7 @@ def get_user_router() -> Router:
         await callback.answer()
         await callback.message.edit_text(
             "<b>Подключение на iOS (iPhone/iPad)</b>\n\n"
-            "1. <b>Установите приложение V2RayTun:</b> Загрузите и установите приложение V2RayTun из App Store.\n"
+            "1. <b>Установите приложение <a href=\"https://apps.apple.com/se/app/v2raytun/id6476628951?l=en-GB&platform=ipad\">V2RayTun</a>:</b> Загрузите и установите приложение V2RayTun из <a href=\"https://apps.apple.com/se/app/v2raytun/id6476628951?l=en-GB&platform=ipad\">App Store</a>.\n"
             "2. <b>Скопируйте свой ключ (vless://):</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
             "3. <b>Импортируйте конфигурацию:</b>\n"
             "   • Откройте V2RayTun.\n"
