@@ -320,7 +320,7 @@ def create_payment_method_keyboard(
         heleket_merchant = get_setting("heleket_merchant_id")
         heleket_api_key = get_setting("heleket_api_key")
         if heleket_merchant and heleket_api_key:
-            btn_text = "💳 Heleket (карты/крипта)"
+            btn_text = "🤖 Heleket (BTC, ETH, USDT)"
             if price is not None:
                 btn_text += f" - {price:.0f} RUB"
             builder.button(text=btn_text, callback_data="pay_heleket")
@@ -374,7 +374,7 @@ def create_topup_payment_method_keyboard(payment_methods: dict) -> InlineKeyboar
         heleket_merchant = get_setting("heleket_merchant_id")
         heleket_api_key = get_setting("heleket_api_key")
         if heleket_merchant and heleket_api_key:
-            builder.button(text="💳 Heleket (карты/крипта)", callback_data="topup_pay_heleket")
+            builder.button(text="🤖 Heleket (BTC, ETH, USDT)", callback_data="topup_pay_heleket")
     
     # CryptoBot - показываем только если настроен
     if payment_methods and payment_methods.get("cryptobot"):
