@@ -1124,7 +1124,10 @@ def get_user_router() -> Router:
                 reply_markup=keyboards.create_support_bot_link_keyboard(support_bot_username)
             )
         else:
-            await callback.message.edit_text("Контакты поддержки не настроены.", reply_markup=keyboards.create_back_to_menu_keyboard())
+            await callback.message.edit_text(
+                "Контакты поддержки не настроены.",
+                reply_markup=keyboards.create_back_to_menu_keyboard()
+            )
 
     @user_router.message(SupportDialog.waiting_for_subject)
     @registration_required
