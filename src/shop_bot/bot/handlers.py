@@ -29,6 +29,18 @@ from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+
+# Helper для безопасного callback.answer()
+async def safe_callback_answer(callback: types.CallbackQuery, text: str | None = None, show_alert: bool = False):
+    try:
+        await callback.answer(text=text, show_alert=show_alert)
+    except TelegramBadRequest as e:
+        if "query is too old" in str(e) or "query ID is invalid" in str(e):
+            pass  # Игнорируем истёкшие query
+        else:
+            raise
+    except Exception:
+        pass  # Игнорируем остальные ошибки
 from aiogram.enums import ChatMemberStatus
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup
@@ -1271,7 +1283,7 @@ def get_user_router() -> Router:
     @user_router.callback_query(F.data == "manage_keys")
     @registration_required
     async def manage_keys_handler(callback: types.CallbackQuery):
-        await callback.answer()
+        await safe_callback_answer(callback)
         user_id = callback.from_user.id
         user_keys = get_user_keys(user_id)
         await callback.message.edit_text(
