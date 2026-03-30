@@ -151,6 +151,14 @@ async def _create_heleket_payment_request(
         b64_payload = base64.b64encode(json_payload.encode('utf-8')).decode('utf-8')
         sign_string = b64_payload + api_key
         sign = hashlib.md5(sign_string.encode('utf-8')).hexdigest()
+        
+        # DEBUG: Log signature details
+        logger.info(f"Heleket DEBUG: merchant_id={merchant_id}")
+        logger.info(f"Heleket DEBUG: api_key={api_key[:8]}...{api_key[-4:]}")
+        logger.info(f"Heleket DEBUG: json_payload={json_payload}")
+        logger.info(f"Heleket DEBUG: b64_payload={b64_payload}")
+        logger.info(f"Heleket DEBUG: sign_string={sign_string}")
+        logger.info(f"Heleket DEBUG: sign={sign}")
 
         headers = {
             "Content-Type": "application/json",
