@@ -116,10 +116,9 @@ async def _create_heleket_payment_request(
     try:
         merchant_id = get_setting("heleket_merchant_id")
         api_key = get_setting("heleket_api_key")
-        domain = get_setting("domain")
 
-        if not merchant_id or not api_key or not domain:
-            logger.error("Heleket payment failed: missing merchant_id, api_key, or domain")
+        if not merchant_id or not api_key:
+            logger.error("Heleket payment failed: missing merchant_id or api_key")
             return None
 
         # Prepare metadata
@@ -146,11 +145,9 @@ async def _create_heleket_payment_request(
             "returnUrl": f"https://t.me/{TELEGRAM_BOT_USERNAME}",
         }
 
-        # Generate signature
-        sorted_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        base64_encoded = base64.b64encode(sorted_payload.encode()).decode()
-        raw_string = f"{base64_encoded}{api_key}"
-        sign = hashlib.md5(raw_string.encode()).hexdigest()
+        # Generate signature: MD5(API_KEY + MERCHANT_ID + AMOUNT + CURRENCY)
+        sign_string = f"{api_key}{merchant_id}{price}RUB"
+        sign = hashlib.md5(sign_string.encode()).hexdigest()
 
         headers = {
             "Content-Type": "application/json",
