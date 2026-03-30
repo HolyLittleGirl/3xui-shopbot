@@ -95,9 +95,9 @@ class BotController:
             cryptobot_token = database.get_setting("cryptobot_token")
             cryptobot_enabled = bool(cryptobot_token)
 
-            heleket_shop_id = database.get_setting("heleket_merchant_id")
+            heleket_merchant_id = database.get_setting("heleket_merchant_id")
             heleket_api_key = database.get_setting("heleket_api_key")
-            heleket_enabled = bool(heleket_api_key and heleket_shop_id)
+            heleket_enabled = bool(heleket_api_key and heleket_merchant_id)
 
             ton_wallet_address = database.get_setting("ton_wallet_address")
             tonapi_key = database.get_setting("tonapi_key")
