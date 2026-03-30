@@ -344,7 +344,7 @@ def create_payment_method_keyboard(
     if payment_methods and payment_methods.get("stars"):
         btn_text = "⭐ Telegram Stars (Карты РФ и SberPay)"
         if price_stars is not None and price_stars > 0:
-            btn_text += f" - {price_stars} ⭐"
+            btn_text += f" - {price_stars}⭐"
         builder.button(text=btn_text, callback_data="pay_stars")
 
     builder.button(text="⬅️ Назад", callback_data="back_to_email_prompt")
