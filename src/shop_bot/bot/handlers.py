@@ -2098,6 +2098,61 @@ def get_user_router() -> Router:
         else:
             await callback.message.edit_text("❌ Не удалось создать счет CryptoBot. Попробуйте другой способ оплаты.")
 
+    @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "pay_heleket")
+    async def create_heleket_payment_handler(callback: types.CallbackQuery, state: FSMContext):
+        await callback.answer("Создаю счет через Heleket...")
+
+        data = await state.get_data()
+        user_id = callback.from_user.id
+
+        heleket_merchant_id = get_setting("heleket_merchant_id")
+        heleket_api_key = get_setting("heleket_api_key")
+
+        if not heleket_merchant_id or not heleket_api_key:
+            logger.error(f"Heleket credentials not set for user {user_id}")
+            await callback.message.edit_text("❌ Оплата через Heleket временно недоступна.")
+            await state.clear()
+            return
+
+        plan_id = data.get('plan_id')
+        plan = get_plan_by_id(plan_id)
+        if not plan:
+            await callback.message.edit_text("❌ Произошла ошибка при выборе тарифа.")
+            await state.clear()
+            return
+
+        base_price = Decimal(str(plan['price']))
+        price_rub_decimal = base_price
+
+        # Apply referral discount if applicable
+        user_data = get_user(user_id)
+        if user_data and user_data.get('referred_by') and user_data.get('total_spent', 0) == 0:
+            discount_percentage_str = get_setting("referral_discount") or "0"
+            discount_percentage = Decimal(discount_percentage_str)
+            if discount_percentage > 0:
+                discount_amount = (base_price * discount_percentage / 100).quantize(Decimal("0.01"))
+                price_rub_decimal = base_price - discount_amount
+
+        final_price = float(price_rub_decimal)
+
+        payment_url = await _create_heleket_payment_request(
+            user_id=user_id,
+            price=final_price,
+            months=plan['months'],
+            host_name=data.get('host_name'),
+            state_data=data
+        )
+
+        if payment_url:
+            await callback.message.edit_text(
+                f"💳 Счёт на сумму <b>{final_price:.2f} RUB</b>\n\n"
+                f"Оплатите по ссылке ниже:\n{payment_url}",
+                reply_markup=keyboards.create_payment_keyboard(payment_url)
+            )
+            await state.clear()
+        else:
+            await callback.message.edit_text("❌ Не удалось создать счет Heleket. Попробуйте другой способ оплаты.")
+
     @user_router.callback_query(PaymentProcess.waiting_for_payment_method, F.data == "pay_tonconnect")
     async def create_ton_invoice_handler(callback: types.CallbackQuery, state: FSMContext):
         logger.info(f"User {callback.from_user.id}: Entered create_ton_invoice_handler.")
