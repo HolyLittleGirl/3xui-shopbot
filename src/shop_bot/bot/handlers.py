@@ -1646,16 +1646,50 @@ def get_user_router() -> Router:
             now_dt = datetime.now()
             expiry_timestamp_ms_exact = int((now_dt + timedelta(days=1)).timestamp() * 1000)
 
+        # Переименовываем email для нового inbound_id
+        old_email = key_data.get('key_email')
+        new_host_data = get_host(new_host_name)
+        new_inbound_id = new_host_data.get('host_inbound_id', '1') if new_host_data else '1'
+        
+        # Извлекаем префикс (trial_/gift_) и username из старого email
+        if old_email.startswith('trial_'):
+            prefix = 'trial_'
+            username_part = old_email.replace('trial_', '').split('@')[0]
+            # username_part это "{old_inbound_id}_{username}_{attempt}"
+            parts = username_part.split('_', 1)  # Разделяем на inbound_id и остальное
+            if len(parts) == 2:
+                username_and_attempt = parts[1]  # "{username}_{attempt}"
+            else:
+                username_and_attempt = parts[0] if parts else 'user'
+        elif old_email.startswith('gift_'):
+            prefix = 'gift_'
+            username_part = old_email.replace('gift_', '').split('@')[0]
+            parts = username_part.split('_', 1)
+            if len(parts) == 2:
+                username_and_attempt = parts[1]
+            else:
+                username_and_attempt = parts[0] if parts else 'user'
+        else:
+            prefix = ''
+            username_part = old_email.split('@')[0]
+            parts = username_part.split('_', 1)
+            if len(parts) == 2:
+                username_and_attempt = parts[1]
+            else:
+                username_and_attempt = parts[0] if parts else 'user'
+        
+        # Новый email с новым inbound_id
+        new_email = f'{prefix}{new_inbound_id}_{username_and_attempt}@bot.local'
+
         await callback.message.edit_text(
             f"⏳ Переношу ключ на сервер \"{new_host_name}\"..."
         )
 
-        email = key_data.get('key_email')
         try:
-            # Передаём точный expiry_timestamp_ms, чтобы не увеличивать срок на панели при переносе
+            # Передаём точный expiry_timestamp_ms и новый email
             result = await xui_api.create_or_update_key_on_host(
                 new_host_name,
-                email,
+                new_email,
                 days_to_add=None,
                 expiry_timestamp_ms=expiry_timestamp_ms_exact
             )
@@ -1665,18 +1699,19 @@ def get_user_router() -> Router:
                 )
                 return
 
-            # Сначала удаляем на старом сервере, пока локально сохранен старый UUID по email
+            # Сначала удаляем на старом сервере со старым email
             try:
-                await xui_api.delete_client_on_host(old_host, email)
+                await xui_api.delete_client_on_host(old_host, old_email)
             except Exception:
                 pass
 
-            # Затем обновляем локальную БД новым хостом и UUID
+            # Затем обновляем локальную БД новым хостом, email и UUID
             update_key_host_and_info(
                 key_id=key_id,
                 new_host_name=new_host_name,
                 new_xui_uuid=result['client_uuid'],
-                new_expiry_ms=result['expiry_timestamp_ms']
+                new_expiry_ms=result['expiry_timestamp_ms'],
+                new_email=new_email
             )
 
             # Показываем сразу обновлённые данные ключа
