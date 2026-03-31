@@ -1778,6 +1778,7 @@ def get_user_router() -> Router:
         await callback.answer()
         await callback.message.edit_text(
             "<b>Подключение на iOS (iPhone/iPad)</b>\n\n"
+            "<b>❗️ С 31.03.2026 в РФ чтобы скачать приложения для работы с VLESS протоколом, необходимо сменить регион в настройках Apple ID.</b>"
             "1. <b>Установите приложение <a href=\"https://apps.apple.com/se/app/v2raytun/id6476628951?l=en-GB&platform=ipad\">V2RayTun</a>:</b> Загрузите и установите приложение V2RayTun из <a href=\"https://apps.apple.com/se/app/v2raytun/id6476628951?l=en-GB&platform=ipad\">App Store</a>.\n"
             "2. <b>Скопируйте свой ключ (vless://):</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
             "3. <b>Импортируйте конфигурацию:</b>\n"
