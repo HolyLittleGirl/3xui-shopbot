@@ -1830,7 +1830,10 @@ def get_user_router() -> Router:
         await callback.answer()
         await callback.message.edit_text(
             "<b>Подключение на Linux</b>\n\n"
-            "<b>Установите приложение <a href=\"https://github.com/hiddify/hiddify-app/blob/main/README_ru.md\">Hiddify</a>:</b>\n\n"
+            "<b>Установите приложение Hiddify:</b>\n\n"
+            "<b>Способ 1: Автоматическая установка (для Ubuntu)</b>\n"
+            "<code>bash &lt;(curl https://i.hiddify.com/release)</code>\n\n"
+            "<b>Способ 2: Ручная установка</b>\n"
             "1. <b>Загрузите Hiddify:</b> Перейдите на <a href=\"https://github.com/hiddify/hiddify-app/releases\">GitHub Releases</a> и выберите версию для вашего дистрибутива:\n"
             "   • <code>.deb</code> — для Debian, Ubuntu, Linux Mint\n"
             "   • <code>.rpm</code> — для Fedora, RHEL, CentOS\n"
