@@ -557,7 +557,7 @@ def get_user_router() -> Router:
         await state.update_data(topup_amount=float(final_amount))
         await message.answer(
             f"К пополнению: {final_amount:.2f} RUB\nВыберите способ оплаты:",
-            reply_markup=keyboards.main_reply_keyboard
+            reply_markup=keyboards.create_topup_payment_method_keyboard()
         )
         await state.set_state(TopUpProcess.waiting_for_topup_method)
 
