@@ -557,15 +557,15 @@ def create_webhook_app(bot_controller_instance):
             host_name = request.args.get('host_name', 'default')
             host_data = get_host(host_name)
             inbound_id = host_data.get('host_inbound_id', '1') if host_data else '1'
-            base_local = f"{username_slug}@{inbound_id}"
-            candidate_local = base_local
+            base_local = f"{inbound_id}_{username_slug}"
+            candidate_local = base_local + "_1"
             attempt = 1
             while True:
-                candidate_email = f"{candidate_local}.bot"
+                candidate_email = f"{candidate_local}@bot.local"
                 if not get_key_by_email(candidate_email):
                     break
                 attempt += 1
-                candidate_local = f"{base_local}-{attempt}"
+                candidate_local = f"{inbound_id}_{username_slug}_{attempt}"
             return jsonify({"ok": True, "email": candidate_email})
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500

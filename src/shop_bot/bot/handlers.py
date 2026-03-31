@@ -1437,32 +1437,33 @@ def get_user_router() -> Router:
 
             await message.edit_text(f"Отлично! Создаю для вас бесплатный ключ на {get_setting('trial_duration_days')} дня на сервере \"{host_name}\"...")
 
-            # email: trial_{username}@{inbound_id}.bot с авто-суффиксом при коллизиях
-            # inbound_id - это число из настроек хоста (ID входящего подключения)
+            # Формат email: trial_{inbound_id}_{username}_{attempt}@bot.local
+            # inbound_id - число из настроек хоста (ID входящего подключения)
             user_data = user_db_data or {}
             raw_username = (user_data.get('username') or f'user{user_id}').lower()
             username_slug = re.sub(r"[^a-z0-9._-]", "_", raw_username).strip("_")[:16] or f"user{user_id}"
             # Получаем inbound_id из настроек хоста
             host_data = get_host(host_name)
             inbound_id = host_data.get('host_inbound_id', '1') if host_data else '1'
-            base_local = f"trial_{username_slug}@{inbound_id}"
+            base_local = f"trial_{inbound_id}_{username_slug}"
+            candidate_local = base_local + "_1"
             candidate_email = None
 
             # Попытка генерации уникального email (максимум 100 попыток)
             for attempt in range(1, 101):
                 if attempt == 1:
-                    candidate_local = base_local
+                    candidate_local = base_local + "_1"
                 else:
-                    candidate_local = f"{base_local}-{attempt}"
-                candidate_email = f"{candidate_local}.bot"
+                    candidate_local = f"{base_local}_{attempt}"
+                candidate_email = f"{candidate_local}@bot.local"
 
                 existing_key = get_key_by_email(candidate_email)
                 if not existing_key:
                     break
             else:
                 # Если 100 попыток не удались, используем timestamp
-                candidate_local = f"{base_local}-{int(datetime.now().timestamp())}"
-                candidate_email = f"{candidate_local}.bot"
+                candidate_local = f"{base_local}_{int(datetime.now().timestamp())}"
+                candidate_email = f"{candidate_local}@bot.local"
                 logger.info(f"Trial email generated with timestamp: {candidate_email}")
 
             # Создание ключа в панели 3x-ui
@@ -2649,27 +2650,28 @@ async def process_successful_payment(bot: Bot, metadata: dict):
         result = None
         # Определяем email для операции и вызываем панель для обеих веток (new/extend)
         if action == "new":
-            # Сформируем email в формате {username}@{inbound_id}.bot с авто-суффиксом при коллизиях
-            # inbound_id - это число из настроек хоста (ID входящего подключения)
-            # Это позволяет создавать несколько ключей на одном хосте и на разных хостах
+            # Формат email: {inbound_id}_{username}_{attempt}@bot.local
+            # inbound_id - число из настроек хоста (ID входящего подключения)
+            # attempt - номер ключа пользователя на этом inbound_id (начиная с 1)
+            # Пример: 2_holylittlegirl_1@bot.local (первый ключ на inbound 2)
             user_data = get_user(user_id) or {}
             raw_username = (user_data.get('username') or f'user{user_id}').lower()
             username_slug = re.sub(r"[^a-z0-9._-]", "_", raw_username).strip("_")[:16] or f"user{user_id}"
             # Получаем inbound_id из настроек хоста
             host_data = get_host(host_name)
             inbound_id = host_data.get('host_inbound_id', '1') if host_data else '1'
-            base_local = f"{username_slug}@{inbound_id}"
-            candidate_local = base_local
+            base_local = f"{inbound_id}_{username_slug}"
+            candidate_local = base_local + "_1"
             attempt = 1
             while True:
-                candidate_email = f"{candidate_local}.bot"
+                candidate_email = f"{candidate_local}@bot.local"
                 if not get_key_by_email(candidate_email):
                     break
                 attempt += 1
-                candidate_local = f"{base_local}-{attempt}"
+                candidate_local = f"{inbound_id}_{username_slug}_{attempt}"
                 if attempt > 100:
-                    candidate_local = f"{base_local}-{int(datetime.now().timestamp())}"
-                    candidate_email = f"{candidate_local}.bot"
+                    candidate_local = f"{inbound_id}_{username_slug}_{int(datetime.now().timestamp())}"
+                    candidate_email = f"{candidate_local}@bot.local"
                     break
         else:
             # Продление существующего ключа — достаём email по key_id

@@ -1313,25 +1313,27 @@ def get_admin_router() -> Router:
             await message.answer("❌ Срок должен быть положительным")
             return
         # Сгенерируем уникальный техн. email
+        # Формат: {inbound_id}_{username}_{attempt}@bot.local для покупных
+        # trial_{inbound_id}_{username}_{attempt}@bot.local для триальных
         user = get_user(user_id) or {}
         username = (user.get('username') or f'user{user_id}').lower()
         username_slug = re.sub(r"[^a-z0-9._-]", "_", username).strip("_")[:16] or f"user{user_id}"
         # Получаем inbound_id из настроек хоста (число, без кириллицы)
         host_data = get_host(host_name)
         inbound_id = host_data.get('host_inbound_id', '1') if host_data else '1'
-        base_local = f"gift_{username_slug}@{inbound_id}"
-        candidate_local = base_local
+        base_local = f"{inbound_id}_{username_slug}"
+        candidate_local = base_local + "_1"
         attempt = 1
         while True:
-            candidate_email = f"{candidate_local}.bot"
+            candidate_email = f"{candidate_local}@bot.local"
             existing = get_key_by_email(candidate_email)
             if not existing:
                 break
             attempt += 1
-            candidate_local = f"{base_local}-{attempt}"
+            candidate_local = f"{inbound_id}_{username_slug}_{attempt}"
             if attempt > 100:
-                candidate_local = f"{base_local}-{int(time.time())}"
-                candidate_email = f"{candidate_local}.bot"
+                candidate_local = f"{inbound_id}_{username_slug}_{int(time.time())}"
+                candidate_email = f"{candidate_local}@bot.local"
                 break
         generated_email = candidate_email
 
