@@ -7,8 +7,6 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from shop_bot.data_manager.database import get_setting
 
-logger = logging.getLogger(__name__)
-
 main_reply_keyboard = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="🏠 Главное меню")]],
     resize_keyboard=True
@@ -282,15 +280,19 @@ def create_skip_email_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 def create_payment_method_keyboard(
-    payment_methods: dict,
-    action: str,
-    key_id: int,
+    payment_methods: dict | None = None,
+    action: str = "",
+    key_id: int = 0,
     show_balance: bool | None = None,
     main_balance: float | None = None,
     price: float | None = None,
     price_stars: int | None = None,
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    
+    # Dynamically get payment methods if not provided
+    if payment_methods is None:
+        payment_methods = get_payment_methods()
 
     # Кнопки оплаты с балансов (если разрешено/достаточно средств)
     # Показываем и рубли, и звёзды только для баланса
@@ -324,6 +326,16 @@ def create_payment_method_keyboard(
             if price is not None:
                 btn_text += f" - {price:.0f} RUB"
             builder.button(text=btn_text, callback_data="pay_heleket")
+
+    # YooMoney - показываем только если настроен
+    if payment_methods and payment_methods.get("yoomoney"):
+        yoomoney_wallet = get_setting("yoomoney_wallet_id")
+        yoomoney_api_key = get_setting("yoomoney_api_key")
+        if yoomoney_wallet and yoomoney_api_key:
+            btn_text = "💳 YooMoney (ЮMoney)"
+            if price is not None:
+                btn_text += f" - {price:.0f} RUB"
+            builder.button(text=btn_text, callback_data="pay_yoomoney")
 
     # CryptoBot - показываем только если настроен токен
     if payment_methods and payment_methods.get("cryptobot"):
@@ -361,8 +373,43 @@ def create_payment_keyboard(payment_url: str) -> InlineKeyboardMarkup:
     builder.button(text="Перейти к оплате", url=payment_url)
     return builder.as_markup()
 
-def create_topup_payment_method_keyboard(payment_methods: dict) -> InlineKeyboardMarkup:
+def get_payment_methods():
+    """Dynamically get available payment methods from database."""
+    from shop_bot.data_manager.database import get_setting
+    
+    yookassa_shop_id = get_setting("yookassa_shop_id")
+    yookassa_secret_key = get_setting("yookassa_secret_key")
+    yookassa_enabled = bool(yookassa_shop_id and yookassa_secret_key)
+    
+    heleket_merchant_id = get_setting("heleket_merchant_id")
+    heleket_api_key = get_setting("heleket_api_key")
+    heleket_enabled = bool(heleket_api_key and heleket_merchant_id)
+    
+    yoomoney_wallet_id = get_setting("yoomoney_wallet_id")
+    yoomoney_api_key = get_setting("yoomoney_api_key")
+    yoomoney_enabled = bool(yoomoney_wallet_id and yoomoney_api_key)
+    
+    cryptobot_token = get_setting("cryptobot_token")
+    cryptobot_enabled = bool(cryptobot_token)
+    
+    ton_wallet_address = get_setting("ton_wallet_address")
+    tonapi_key = get_setting("tonapi_key")
+    tonconnect_enabled = bool(ton_wallet_address and tonapi_key)
+    
+    return {
+        "yookassa": yookassa_enabled,
+        "heleket": heleket_enabled,
+        "yoomoney": yoomoney_enabled,
+        "cryptobot": cryptobot_enabled,
+        "tonconnect": tonconnect_enabled,
+        "stars": True  # Telegram Stars всегда доступен
+    }
+
+def create_topup_payment_method_keyboard(payment_methods: dict | None = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    # Dynamically get payment methods if not provided
+    if payment_methods is None:
+        payment_methods = get_payment_methods()
     # Только внешние способы оплаты, без оплаты с баланса
     if payment_methods and payment_methods.get("yookassa"):
         if get_setting("sbp_enabled"):

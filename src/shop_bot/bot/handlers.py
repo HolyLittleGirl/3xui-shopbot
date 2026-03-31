@@ -2113,7 +2113,6 @@ def get_user_router() -> Router:
             await message.edit_text(
                 message_text,
                 reply_markup=keyboards.create_payment_method_keyboard(
-                    payment_methods=PAYMENT_METHODS,
                     action=data.get('action'),
                     key_id=data.get('key_id'),
                     show_balance=show_balance_btn,
@@ -2126,7 +2125,6 @@ def get_user_router() -> Router:
             await message.answer(
                 message_text,
                 reply_markup=keyboards.create_payment_method_keyboard(
-                    payment_methods=PAYMENT_METHODS,
                     action=data.get('action'),
                     key_id=data.get('key_id'),
                     show_balance=show_balance_btn,
