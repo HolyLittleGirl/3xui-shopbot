@@ -442,6 +442,7 @@ def create_back_to_menu_keyboard() -> InlineKeyboardMarkup:
 
 def create_profile_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    builder.button(text="🔑 Купить ключ", callback_data="buy_new_key")
     builder.button(text="➕ Пополнить баланс", callback_data="top_up_start")
     builder.button(text="🤝 Реферальная программа", callback_data="show_referral_program")
     builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
