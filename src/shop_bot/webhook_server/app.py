@@ -1056,7 +1056,7 @@ def create_webhook_app(bot_controller_instance):
     @login_required
     def settings_page():
         if request.method == 'POST':
-            # Смена пароля панели (если поле не пустое)
+            # Смена пароля панели (только если поле не пустое)
             if 'panel_password' in request.form and request.form.get('panel_password'):
                 update_setting('panel_password', request.form.get('panel_password'))
 
@@ -1067,11 +1067,13 @@ def create_webhook_app(bot_controller_instance):
                 value = values[-1] if values else 'false'
                 update_setting(checkbox_key, value)
 
-            # Обновление остальных настроек из ALL_SETTINGS_KEYS (кроме panel_password и чекбоксов)
+            # Обновление остальных настроек из ALL_SETTINGS_KEYS
             for key in ALL_SETTINGS_KEYS:
+                # Пропускаем чекбоксы и panel_password (обрабатываются отдельно)
                 if key in checkbox_keys or key == 'panel_password':
                     continue
-                if key in request.form:
+                # Пропускаем пустые значения (чтобы не затереть существующие настройки)
+                if key in request.form and request.form.get(key):
                     update_setting(key, request.form.get(key))
 
             flash('Настройки сохранены.', 'success')
