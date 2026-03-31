@@ -514,7 +514,11 @@ def get_user_router() -> Router:
     @registration_required
     async def topup_start_handler(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer()
-        await callback.message.edit_text(
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(
             "Введите сумму пополнения в рублях (например, 300):\nМинимум: 10 RUB, максимум: 100000 RUB",
             reply_markup=keyboards.main_reply_keyboard
         )
@@ -563,11 +567,11 @@ def get_user_router() -> Router:
         data = await state.get_data()
         amount = Decimal(str(data.get('topup_amount', 0)))
         if amount <= 0:
-            await callback.message.edit_text(
+            await state.clear()
+            await callback.message.answer(
                 "❌ Некорректная сумма пополнения. Повторите ввод.",
                 reply_markup=keyboards.main_reply_keyboard
             )
-            await state.clear()
             return
         user_id = callback.from_user.id
         price_str_for_api = f"{amount:.2f}"
@@ -620,20 +624,20 @@ def get_user_router() -> Router:
         user_id = callback.from_user.id
         amount = float(data.get('topup_amount', 0))
         if amount <= 0:
-            await callback.message.edit_text(
+            await state.clear()
+            await callback.message.answer(
                 "❌ Некорректная сумма пополнения. Повторите ввод.",
                 reply_markup=keyboards.main_reply_keyboard
             )
-            await state.clear()
             return
 
         cryptobot_token = get_setting('cryptobot_token')
         if not cryptobot_token:
-            await callback.message.edit_text(
+            await state.clear()
+            await callback.message.answer(
                 "❌ CryptoBot временно недоступен.",
                 reply_markup=keyboards.main_reply_keyboard
             )
-            await state.clear()
             return
 
         state_data = {"action": "top_up", "customer_email": None, "plan_id": None, "host_name": None, "key_id": None}
@@ -647,13 +651,14 @@ def get_user_router() -> Router:
         )
 
         if invoice_url:
-            await callback.message.edit_text(
+            await callback.message.answer(
                 f"💳 Счёт на сумму <b>{amount:.2f} RUB</b>\n\nОплатите по ссылке:\n{invoice_url}",
                 reply_markup=keyboards.create_payment_keyboard(invoice_url)
             )
             await state.clear()
         else:
-            await callback.message.edit_text(
+            await state.clear()
+            await callback.message.answer(
                 "❌ Не удалось создать счет CryptoBot.",
                 reply_markup=keyboards.main_reply_keyboard
             )
@@ -665,11 +670,11 @@ def get_user_router() -> Router:
         user_id = callback.from_user.id
         amount = float(data.get('topup_amount', 0))
         if amount <= 0:
-            await callback.message.edit_text(
+            await state.clear()
+            await callback.message.answer(
                 "❌ Некорректная сумма пополнения. Повторите ввод.",
                 reply_markup=keyboards.main_reply_keyboard
             )
-            await state.clear()
             return
 
         state_data = {"action": "top_up", "customer_email": None, "plan_id": None, "host_name": None, "key_id": None}
@@ -682,19 +687,20 @@ def get_user_router() -> Router:
                 state_data=state_data
             )
             if pay_url:
-                await callback.message.edit_text(
+                await callback.message.answer(
                     "Нажмите на кнопку ниже для оплаты:",
                     reply_markup=keyboards.create_payment_keyboard(pay_url)
                 )
                 await state.clear()
             else:
-                await callback.message.edit_text(
+                await state.clear()
+                await callback.message.answer(
                     "❌ Не удалось создать счет. Попробуйте другой способ оплаты.",
                     reply_markup=keyboards.main_reply_keyboard
                 )
         except Exception as e:
             logger.error(f"Failed to create Heleket topup payment: {e}", exc_info=True)
-            await callback.message.edit_text(
+            await callback.message.answer(
                 "❌ Не удалось создать счёт.",
                 reply_markup=keyboards.main_reply_keyboard
             )
@@ -707,30 +713,30 @@ def get_user_router() -> Router:
         user_id = callback.from_user.id
         amount_rub = Decimal(str(data.get('topup_amount', 0)))
         if amount_rub <= 0:
-            await callback.message.edit_text(
+            await state.clear()
+            await callback.message.answer(
                 "❌ Некорректная сумма пополнения. Повторите ввод.",
                 reply_markup=keyboards.main_reply_keyboard
             )
-            await state.clear()
             return
 
         wallet_address = get_setting("ton_wallet_address")
         if not wallet_address:
-            await callback.message.edit_text(
+            await state.clear()
+            await callback.message.answer(
                 "❌ Оплата через TON временно недоступна.",
                 reply_markup=keyboards.main_reply_keyboard
             )
-            await state.clear()
             return
 
         usdt_rub_rate = await get_usdt_rub_rate()
         ton_usdt_rate = await get_ton_usdt_rate()
         if not usdt_rub_rate or not ton_usdt_rate:
-            await callback.message.edit_text(
+            await state.clear()
+            await callback.message.answer(
                 "❌ Не удалось получить курс TON. Попробуйте позже.",
                 reply_markup=keyboards.main_reply_keyboard
             )
-            await state.clear()
             return
 
         price_ton = (amount_rub / usdt_rub_rate / ton_usdt_rate).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
@@ -770,7 +776,7 @@ def get_user_router() -> Router:
             await state.clear()
         except Exception as e:
             logger.error(f"Failed to start TON Connect topup: {e}", exc_info=True)
-            await callback.message.edit_text(
+            await callback.message.answer(
                 "❌ Не удалось подготовить оплату TON Connect.",
                 reply_markup=keyboards.main_reply_keyboard
             )
@@ -785,11 +791,11 @@ def get_user_router() -> Router:
         user_id = callback.from_user.id
 
         if amount_rub <= 0:
-            await callback.message.edit_text(
+            await state.clear()
+            await callback.message.answer(
                 "❌ Некорректная сумма пополнения. Повторите ввод.",
                 reply_markup=keyboards.main_reply_keyboard
             )
-            await state.clear()
             return
 
         # Конвертируем рубли в звёзды (1 звезда ≈ 1.25 RUB, минимальное количество — 1 звезда)
@@ -819,10 +825,9 @@ def get_user_router() -> Router:
                     InlineKeyboardButton(text="⬅️ Назад", callback_data="back_to_topup_amount")
                 ).as_markup()
             )
-            await callback.message.delete()
         except Exception as e:
             logger.error(f"Failed to create Telegram Stars topup invoice: {e}", exc_info=True)
-            await callback.message.edit_text(
+            await callback.message.answer(
                 "❌ Не удалось создать счет Telegram Stars. Попробуйте позже.",
                 reply_markup=keyboards.main_reply_keyboard
             )
