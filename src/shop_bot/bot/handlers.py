@@ -617,6 +617,52 @@ def get_user_router() -> Router:
             await callback.message.answer("Не удалось создать ссылку на оплату.")
             await state.clear()
 
+    @user_router.callback_query(TopUpProcess.waiting_for_topup_method, F.data == "topup_pay_yoomoney")
+    async def topup_pay_yoomoney(callback: types.CallbackQuery, state: FSMContext):
+        await callback.answer("Создаю ссылку на оплату...")
+        data = await state.get_data()
+        amount = Decimal(str(data.get('topup_amount', 0)))
+        if amount <= 0:
+            await state.clear()
+            await callback.message.answer(
+                "❌ Некорректная сумма пополнения. Повторите ввод.",
+                reply_markup=keyboards.main_reply_keyboard
+            )
+            return
+        
+        user_id = callback.from_user.id
+        yoomoney_wallet = get_setting("yoomoney_wallet_id")
+        yoomoney_api_key = get_setting("yoomoney_api_key")
+        
+        if not yoomoney_wallet or not yoomoney_api_key:
+            await state.clear()
+            await callback.message.answer(
+                "❌ YooMoney временно недоступен.",
+                reply_markup=keyboards.main_reply_keyboard
+            )
+            return
+        
+        # Формируем ссылку на оплату YooMoney
+        # Формат: https://yoomoney.ru/quickpay/confirm.xml?receiver=XXX&formcomment=XXX&sum=XXX&paymentType=XX&quickpay-form=shop
+        yoomoney_url = (
+            f"https://yoomoney.ru/quickpay/confirm.xml?"
+            f"receiver={yoomoney_wallet}"
+            f"&formcomment=Пополнение баланса"
+            f"&sum={amount:.2f}"
+            f"&paymentType=AC"  # AC = банковская карта
+            f"&quickpay-form=shop"
+            f"&targets=Пополнение+баланса+для+user_{user_id}"
+            f"&successURL=https://t.me/{TELEGRAM_BOT_USERNAME}"
+        )
+        
+        await state.clear()
+        await callback.message.answer(
+            f"💳 Оплата через YooMoney\n\n"
+            f"Сумма: <b>{amount:.2f} RUB</b>\n\n"
+            f"Нажмите на кнопку ниже для оплаты:",
+            reply_markup=keyboards.create_payment_keyboard(yoomoney_url)
+        )
+
     @user_router.callback_query(TopUpProcess.waiting_for_topup_method, F.data == "topup_pay_cryptobot")
     async def topup_pay_cryptobot_handler(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("Создаю счет в CryptoBot...")

@@ -99,6 +99,10 @@ class BotController:
             heleket_api_key = database.get_setting("heleket_api_key")
             heleket_enabled = bool(heleket_api_key and heleket_merchant_id)
 
+            yoomoney_wallet_id = database.get_setting("yoomoney_wallet_id")
+            yoomoney_api_key = database.get_setting("yoomoney_api_key")
+            yoomoney_enabled = bool(yoomoney_wallet_id and yoomoney_api_key)
+
             ton_wallet_address = database.get_setting("ton_wallet_address")
             tonapi_key = database.get_setting("tonapi_key")
             tonconnect_enabled = bool(ton_wallet_address and tonapi_key)
@@ -110,6 +114,7 @@ class BotController:
             handlers.PAYMENT_METHODS = {
                 "yookassa": yookassa_enabled,
                 "heleket": heleket_enabled,
+                "yoomoney": yoomoney_enabled,
                 "cryptobot": cryptobot_enabled,
                 "tonconnect": tonconnect_enabled,
                 "stars": True  # Telegram Stars всегда доступен

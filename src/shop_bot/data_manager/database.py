@@ -181,6 +181,8 @@ def initialize_db():
                 "cryptobot_token": None,
                 "heleket_merchant_id": None,
                 "heleket_api_key": None,
+                "yoomoney_wallet_id": None,
+                "yoomoney_api_key": None,
                 "domain": None,
                 "ton_wallet_address": None,
                 "tonapi_key": None,

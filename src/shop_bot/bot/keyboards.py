@@ -369,19 +369,25 @@ def create_topup_payment_method_keyboard(payment_methods: dict) -> InlineKeyboar
             builder.button(text="🏦 СБП / Банковская карта", callback_data="topup_pay_yookassa")
         else:
             builder.button(text="🏦 Банковская карта", callback_data="topup_pay_yookassa")
-    
+
     if payment_methods and payment_methods.get("heleket"):
         heleket_merchant = get_setting("heleket_merchant_id")
         heleket_api_key = get_setting("heleket_api_key")
         if heleket_merchant and heleket_api_key:
             builder.button(text="🤖 Heleket (BTC, ETH, USDT)", callback_data="topup_pay_heleket")
-    
+
+    if payment_methods and payment_methods.get("yoomoney"):
+        yoomoney_wallet = get_setting("yoomoney_wallet_id")
+        yoomoney_api_key = get_setting("yoomoney_api_key")
+        if yoomoney_wallet and yoomoney_api_key:
+            builder.button(text="💳 YooMoney (ЮMoney)", callback_data="topup_pay_yoomoney")
+
     # CryptoBot - показываем только если настроен
     if payment_methods and payment_methods.get("cryptobot"):
         cryptobot_token = get_setting("cryptobot_token")
         if cryptobot_token:
             builder.button(text="🤖 CryptoBot (криптовалюта)", callback_data="topup_pay_cryptobot")
-    
+
     if payment_methods and payment_methods.get("tonconnect"):
         builder.button(text="🪙 TON Connect", callback_data="topup_pay_tonconnect")
     if payment_methods and payment_methods.get("stars"):
