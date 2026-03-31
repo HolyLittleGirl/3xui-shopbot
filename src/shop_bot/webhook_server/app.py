@@ -553,11 +553,14 @@ def create_webhook_app(bot_controller_instance):
             raw_username = (user.get('username') or f'user{user_id}').lower()
             import re
             username_slug = re.sub(r"[^a-z0-9._-]", "_", raw_username).strip("_")[:16] or f"user{user_id}"
-            base_local = f"{username_slug}"
+            # Добавляем host_name для уникальности на разных хостах
+            host_name = request.args.get('host_name', 'default')
+            host_slug = re.sub(r"[^a-z0-9._-]", "_", host_name.lower()).strip("_")[:12] or "host"
+            base_local = f"{username_slug}@{host_slug}"
             candidate_local = base_local
             attempt = 1
             while True:
-                candidate_email = f"{candidate_local}@bot.local"
+                candidate_email = f"{candidate_local}.bot.local"
                 if not get_key_by_email(candidate_email):
                     break
                 attempt += 1
