@@ -26,6 +26,7 @@ from shop_bot.data_manager.database import (
     add_new_key,
     get_key_by_email,
     get_all_hosts,
+    get_host,
     add_to_balance,
     deduct_from_balance,
     ban_user,

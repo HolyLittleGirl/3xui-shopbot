@@ -413,6 +413,21 @@ def enable_blocking() -> dict:
     save_state(state)
     
     logger.info(f"Блокировка включена. Заблокировано {len(ips)} IP адресов")
+    
+    # Обновляем конфиг 3x-ui
+    try:
+        import subprocess
+        import time
+        time.sleep(1)  # Ждём пока ipset полностью обновится
+        
+        result = subprocess.run(
+            ['python3', '/opt/rkn-blocker/update-3xui-config.py'],
+            capture_output=True, text=True, timeout=60
+        )
+        logger.info(f"3x-ui config updated: {result.stdout.strip()}")
+    except Exception as e:
+        logger.warning(f"Failed to update 3x-ui config: {e}")
+    
     return {
         "success": True,
         "blocked_count": len(ips),
