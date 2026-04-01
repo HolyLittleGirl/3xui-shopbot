@@ -2,7 +2,7 @@ FROM python:3.11-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 ENV TZ=Europe/Moscow
-RUN apt-get update && apt-get install -y tzdata ipset iptables && \
+RUN apt-get update && apt-get install -y tzdata ipset iptables sudo && \
     ln -fs /usr/share/zoneinfo/Europe/Moscow /etc/localtime && \
     dpkg-reconfigure -f noninteractive tzdata && \
     rm -rf /var/lib/apt/lists/* || true

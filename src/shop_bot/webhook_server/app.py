@@ -1735,80 +1735,68 @@ def create_webhook_app(bot_controller_instance):
             logger.error(f"Ошибка в обработчике вебхука TonAPI: {e}", exc_info=True)
             return 'Error', 500
 
-    # ==================== RKN Blocker API Routes ====================
-    # Эти routes принимаю запросы из веб-панели/бота и проксируют к RKN API на хосте
+    # ==================== RKN Blocker Routes ====================
+    # Управление RKN через subprocess вызов команд на хосте
     
-    def _call_rkn_api(endpoint: str, method: str = 'GET', json_data: dict = None) -> dict:
+    def _run_rkn_command(action: str) -> dict:
         """
-        Вызвать RKN API на хосте.
-        RKN API слушает на 0.0.0.0:8765 (доступно из Docker сети).
+        Выполнить команду RKN блокировщика через subprocess.
+        Команды выполняются НА ХОСТЕ, не в контейнере.
         """
-        import requests as req
-        import os
+        import subprocess
+        import json
         
         try:
-            # Получаем токен из БД
-            token = get_setting("rkn_api_token")
-            if not token:
-                return {"success": False, "error": "RKN API token not configured"}
+            # Выполняем команду на хосте
+            cmd = ['sudo', '/usr/local/bin/rkn-block', action]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             
-            # Используем host.docker.internal из контейнера
-            # В production это IP хоста в Docker сети (172.17.0.1)
-            api_host = os.environ.get('RKN_API_HOST', 'host.docker.internal')
-            rkn_api_url = f"http://{api_host}:8765{endpoint}"
-            headers = {"X-RKN-Token": token}
-            
-            if method == 'GET':
-                r = req.get(rkn_api_url, headers=headers, timeout=30)
+            if result.returncode == 0:
+                # Парсим вывод
+                output = result.stdout.strip()
+                return {"success": True, "output": output, "action": action}
             else:
-                r = req.post(rkn_api_url, headers=headers, json=json_data or {}, timeout=30)
-            
-            r.raise_for_status()
-            return r.json()
+                logger.error(f"RKN command failed: {result.stderr}")
+                return {"success": False, "error": result.stderr or "Command failed", "action": action}
         
-        except req.exceptions.ConnectionError:
-            logger.error(f"RKN API connection error - tried {rkn_api_url}")
-            return {"success": False, "error": "RKN API unavailable"}
+        except subprocess.TimeoutExpired:
+            logger.error("RKN command timeout")
+            return {"success": False, "error": "Timeout", "action": action}
         except Exception as e:
-            logger.error(f"RKN API call error: {e}")
-            return {"success": False, "error": str(e)}
+            logger.error(f"RKN command error: {e}")
+            return {"success": False, "error": str(e), "action": action}
     
     @flask_app.route('/api/rkn/status', methods=['GET'])
     def rkn_get_status():
         """Получить статус RKN блокировщика."""
-        result = _call_rkn_api('/status', 'GET')
-        if result.get('success') is None and 'enabled' in result:
-            result['success'] = True
+        result = _run_rkn_command('status')
+        # Парсим вывод статуса
+        if result.get('success'):
+            output = result.get('output', '')
+            # Простой парсинг вывода rkn-block status
+            status_info = {
+                'enabled': '✅ Да' in output or 'enabled: ✅' in output,
+                'raw_output': output
+            }
+            result.update(status_info)
         return jsonify(result)
 
     @flask_app.route('/api/rkn/enable', methods=['POST'])
     def rkn_enable():
         """Включить RKN блокировку."""
-        result = _call_rkn_api('/enable', 'POST', {})
+        result = _run_rkn_command('enable')
         return jsonify(result)
 
     @flask_app.route('/api/rkn/disable', methods=['POST'])
     def rkn_disable():
         """Выключить RKN блокировку."""
-        result = _call_rkn_api('/disable', 'POST', {})
+        result = _run_rkn_command('disable')
         return jsonify(result)
 
     @flask_app.route('/api/rkn/update', methods=['POST'])
     def rkn_update():
         """Обновить RKN списки блокировки."""
-        result = _call_rkn_api('/update', 'POST', {})
-        return jsonify(result)
-
-    @flask_app.route('/api/rkn/toggle', methods=['POST'])
-    def rkn_toggle():
-        """Переключить состояние RKN блокировки."""
-        result = _call_rkn_api('/toggle', 'POST', {})
-        return jsonify(result)
-
-    @flask_app.route('/api/rkn/test', methods=['POST'])
-    def rkn_test_connection():
-        """Тестировать соединение с RKN API."""
-        result = _call_rkn_api('/test', 'POST', {})
+        result = _run_rkn_command('update')
         return jsonify(result)
 
     return flask_app
