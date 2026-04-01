@@ -97,6 +97,7 @@ URL: https://your-domain.com/login
 | Система | Что нужно |
 |---------|-----------|
 | YooKassa | Shop ID + Secret Key |
+| YooMoney | Wallet ID + API Key |
 | CryptoBot | API токен из @CryptoBot |
 | Heleket | Merchant ID + API Key |
 | TON Connect | Кошелек + TON API Key |
