@@ -6,7 +6,7 @@ Wants=network.target
 
 [Service]
 Type=simple
-ExecStart=/opt/rkn-blocker/venv/bin/python3 /opt/rkn-blocker/rkn_api.py --port 8765 --host 127.0.0.1
+ExecStart=/opt/rkn-blocker/venv/bin/python3 /opt/rkn-blocker/rkn_api.py --port 8765 --host 0.0.0.0
 WorkingDirectory=/opt/rkn-blocker
 StandardOutput=journal
 StandardError=journal

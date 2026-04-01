@@ -12,6 +12,9 @@ services:
       # SSH-ключи для speedtest (создаём директорию и монтируем ключ)
       - ./ssh-keys:/root/.ssh
     container_name: 3xui-shopbot
+    extra_hosts:
+      # Для доступа к RKN API на хосте из контейнера
+      - "host.docker.internal:host-gateway"
     environment:
       - SHOPBOT_DB_PATH=/app/project/data/users.db
       - TZ=Europe/Moscow

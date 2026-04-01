@@ -19,7 +19,8 @@ from shop_bot.data_manager.database import get_setting, update_setting
 logger = logging.getLogger(__name__)
 
 # Конфигурация по умолчанию
-DEFAULT_API_URL = "http://127.0.0.1:8765"
+# host.docker.internal — это special DNS для доступа из контейнера к хосту
+DEFAULT_API_URL = "http://host.docker.internal:8765"
 DEFAULT_TIMEOUT = 10
 
 
