@@ -12,4 +12,4 @@ COPY . /app/project/
 WORKDIR /app/project
 RUN pip install --no-cache-dir -e . && \
     pip install --no-cache-dir requests flask
-CMD ["python3", "-m", "shop_bot"]
+CMD ["python3", "-m", "shop_bot.__main__"]

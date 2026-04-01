@@ -189,3 +189,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Также вызываем main() если модуль запущен через python3 -m shop_bot.__main__
+import sys
+if sys.argv[0].endswith('__main__.py'):
+    main()
