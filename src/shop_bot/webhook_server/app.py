@@ -1736,119 +1736,79 @@ def create_webhook_app(bot_controller_instance):
             return 'Error', 500
 
     # ==================== RKN Blocker API Routes ====================
+    # Эти routes принимаю запросы из веб-панели/бота и проксируют к RKN API на хосте
+    
+    def _call_rkn_api(endpoint: str, method: str = 'GET', json_data: dict = None) -> dict:
+        """
+        Вызвать RKN API на хосте.
+        RKN API слушает на 0.0.0.0:8765 (доступно из Docker сети).
+        """
+        import requests as req
+        import os
+        
+        try:
+            # Получаем токен из БД
+            token = get_setting("rkn_api_token")
+            if not token:
+                return {"success": False, "error": "RKN API token not configured"}
+            
+            # Используем host.docker.internal из контейнера
+            # В production это IP хоста в Docker сети (172.17.0.1)
+            api_host = os.environ.get('RKN_API_HOST', 'host.docker.internal')
+            rkn_api_url = f"http://{api_host}:8765{endpoint}"
+            headers = {"X-RKN-Token": token}
+            
+            if method == 'GET':
+                r = req.get(rkn_api_url, headers=headers, timeout=30)
+            else:
+                r = req.post(rkn_api_url, headers=headers, json=json_data or {}, timeout=30)
+            
+            r.raise_for_status()
+            return r.json()
+        
+        except req.exceptions.ConnectionError:
+            logger.error(f"RKN API connection error - tried {rkn_api_url}")
+            return {"success": False, "error": "RKN API unavailable"}
+        except Exception as e:
+            logger.error(f"RKN API call error: {e}")
+            return {"success": False, "error": str(e)}
     
     @flask_app.route('/api/rkn/status', methods=['GET'])
     def rkn_get_status():
         """Получить статус RKN блокировщика."""
-        from shop_bot.modules import rkn_client
-        
-        try:
-            client = rkn_client.get_client()
-            status = client.get_status()
-            return jsonify(status)
-        except Exception as e:
-            logger.error(f"RKN status error: {e}")
-            return jsonify({"error": str(e), "enabled": False}), 500
-    
+        result = _call_rkn_api('/status', 'GET')
+        if result.get('success') is None and 'enabled' in result:
+            result['success'] = True
+        return jsonify(result)
+
     @flask_app.route('/api/rkn/enable', methods=['POST'])
     def rkn_enable():
         """Включить RKN блокировку."""
-        from shop_bot.modules import rkn_client
-        
-        try:
-            data = request.json or {}
-            token = data.get('token')
-            
-            if token:
-                # Временная установка токена для клиента
-                client = rkn_client.RKNClient(token=token)
-            else:
-                client = rkn_client.get_client()
-            
-            result = client.enable()
-            return jsonify(result)
-        except Exception as e:
-            logger.error(f"RKN enable error: {e}")
-            return jsonify({"error": str(e), "success": False}), 500
-    
+        result = _call_rkn_api('/enable', 'POST', {})
+        return jsonify(result)
+
     @flask_app.route('/api/rkn/disable', methods=['POST'])
     def rkn_disable():
         """Выключить RKN блокировку."""
-        from shop_bot.modules import rkn_client
-        
-        try:
-            data = request.json or {}
-            token = data.get('token')
-            
-            if token:
-                client = rkn_client.RKNClient(token=token)
-            else:
-                client = rkn_client.get_client()
-            
-            result = client.disable()
-            return jsonify(result)
-        except Exception as e:
-            logger.error(f"RKN disable error: {e}")
-            return jsonify({"error": str(e), "success": False}), 500
-    
+        result = _call_rkn_api('/disable', 'POST', {})
+        return jsonify(result)
+
     @flask_app.route('/api/rkn/update', methods=['POST'])
     def rkn_update():
         """Обновить RKN списки блокировки."""
-        from shop_bot.modules import rkn_client
-        
-        try:
-            data = request.json or {}
-            token = data.get('token')
-            
-            if token:
-                client = rkn_client.RKNClient(token=token)
-            else:
-                client = rkn_client.get_client()
-            
-            result = client.update()
-            return jsonify(result)
-        except Exception as e:
-            logger.error(f"RKN update error: {e}")
-            return jsonify({"error": str(e), "success": False}), 500
-    
+        result = _call_rkn_api('/update', 'POST', {})
+        return jsonify(result)
+
     @flask_app.route('/api/rkn/toggle', methods=['POST'])
     def rkn_toggle():
         """Переключить состояние RKN блокировки."""
-        from shop_bot.modules import rkn_client
-        
-        try:
-            data = request.json or {}
-            token = data.get('token')
-            
-            if token:
-                client = rkn_client.RKNClient(token=token)
-            else:
-                client = rkn_client.get_client()
-            
-            result = client.toggle()
-            return jsonify(result)
-        except Exception as e:
-            logger.error(f"RKN toggle error: {e}")
-            return jsonify({"error": str(e), "success": False}), 500
-    
+        result = _call_rkn_api('/toggle', 'POST', {})
+        return jsonify(result)
+
     @flask_app.route('/api/rkn/test', methods=['POST'])
     def rkn_test_connection():
         """Тестировать соединение с RKN API."""
-        from shop_bot.modules import rkn_client
-        
-        try:
-            data = request.json or {}
-            token = data.get('token')
-            
-            if token:
-                client = rkn_client.RKNClient(token=token)
-            else:
-                client = rkn_client.get_client()
-            
-            result = client.test_connection()
-            return jsonify(result)
-        except Exception as e:
-            logger.error(f"RKN test error: {e}")
-            return jsonify({"error": str(e), "available": False}), 500
+        result = _call_rkn_api('/test', 'POST', {})
+        return jsonify(result)
 
     return flask_app

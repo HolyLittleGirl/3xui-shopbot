@@ -1,25 +1,16 @@
 [Unit]
-Description=RKN Blocker HTTP API Server
+Description=RKN IP Blocker - Блокировка запрещённых ресурсов РФ
 Documentation=https://github.com/HolyLittleGirl/3xui-shopbot/tree/feature/rkn-module/rkn-blocker
 After=network.target
 Wants=network.target
 
 [Service]
-Type=simple
-ExecStart=/opt/rkn-blocker/venv/bin/python3 /opt/rkn-blocker/rkn_api.py --port 8765 --host 127.0.0.1
+Type=oneshot
+ExecStart=/opt/rkn-blocker/venv/bin/python3 /opt/rkn-blocker/block_ips.py run
 WorkingDirectory=/opt/rkn-blocker
 StandardOutput=journal
 StandardError=journal
-Restart=on-failure
-RestartSec=10
-
-# Security hardening
-NoNewPrivileges=yes
-ProtectSystem=strict
-ReadWritePaths=/var/log/rkn-blocker /opt/rkn-blocker
-
-# Environment
-Environment=FLASK_ENV=production
+RemainAfterExit=yes
 
 # Security hardening
 NoNewPrivileges=yes

@@ -9,16 +9,25 @@ services:
       - .:/app/project
       # Отдельный том для базы данных (надёжное сохранение)
       - shopbot-db:/app/project/data
-      # SSH-ключи для speedtest (создаём директорию и монтируем ключ)
+      # SSH-ключи для speedtest
       - ./ssh-keys:/root/.ssh
+      # RKN данные (логи)
+      - /var/log/rkn-blocker:/var/log/rkn-blocker
+      # RKN токен
+      - /etc/rkn-blocker.env:/etc/rkn-blocker.env:ro
     container_name: 3xui-shopbot
-    extra_hosts:
-      # Для доступа к RKN API на хосте из контейнера
-      - "host.docker.internal:host-gateway"
     environment:
       - SHOPBOT_DB_PATH=/app/project/data/users.db
       - TZ=Europe/Moscow
-      # AUTO_START_BOT управляется через веб-панель (Настройки → Панель → Production режим)
+      # RKN API внутри контейнера
+      - RKN_API_HOST=127.0.0.1
+      # AUTO_START_BOT управляется через веб-панель
+      - AUTO_START_BOT=true
+    # Запускаем RKN API + основной бот
+    command: >
+      sh -c "/app/.venv/bin/python3 /app/project/rkn-blocker-inside/rkn_api.py --port 8765 --host 127.0.0.1 &
+             sleep 2 &&
+             python3 -m shop_bot"
 
 volumes:
   shopbot-db:
