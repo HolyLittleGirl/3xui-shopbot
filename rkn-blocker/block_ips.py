@@ -167,6 +167,7 @@ def ensure_whitelist() -> bool:
     run_command(["ipset", "add", WHITELIST_IPSET, "17.0.0.0/8"])
     
     # Добавляем правило в OUTPUT chain (ПЕРЕД правилом блокировки)
+    # 1. Для общего трафика
     result = run_command([
         "iptables", "-C", "OUTPUT",
         "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
@@ -177,15 +178,15 @@ def ensure_whitelist() -> bool:
         # Находим позицию правила блокировки
         result = run_command(["iptables", "-L", "OUTPUT", "-n", "--line-numbers"])
         
-        rkn_line = None
+        block_line = None
         for line in result.stdout.split('\n'):
-            if 'rkn_blocked' in line:
-                rkn_line = line.split()[0]
+            if 'rkn_blocked' in line and 'DROP' in line:
+                block_line = line.split()[0]
                 break
         
-        if rkn_line:
+        if block_line:
             run_command([
-                "iptables", "-I", "OUTPUT", rkn_line,
+                "iptables", "-I", "OUTPUT", block_line,
                 "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
                 "-j", "ACCEPT"
             ])
@@ -198,18 +199,46 @@ def ensure_whitelist() -> bool:
         
         logger.info("Whitelist rule added to OUTPUT chain (before RKN rules)")
     
+    # 2. Для трафика Xray (UID 1001)
+    result = run_command([
+        "iptables", "-C", "OUTPUT",
+        "-m", "owner", "--uid-owner", "1001",
+        "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
+        "-j", "ACCEPT"
+    ])
+    
+    if result.returncode != 0:
+        # Находим позицию правила блокировки для UID 1001
+        result = run_command(["iptables", "-L", "OUTPUT", "-n", "--line-numbers"])
+        
+        uid_block_line = None
+        for line in result.stdout.split('\n'):
+            if 'UID match 1001' in line and 'rkn_blocked' in line:
+                uid_block_line = line.split()[0]
+                break
+        
+        if uid_block_line:
+            run_command([
+                "iptables", "-I", "OUTPUT", uid_block_line,
+                "-m", "owner", "--uid-owner", "1001",
+                "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
+                "-j", "ACCEPT"
+            ])
+            logger.info("Whitelist rule for UID 1001 added to OUTPUT chain")
+    
     return True
 
 
 def ensure_iptables_rule() -> bool:
     """Добавить правило iptables если отсутствует.
     
-    Используем ТОЛЬКО OUTPUT chain с conntrack NEW.
-    FORWARD chain НЕ используется - это ломает VLESS проксирование.
+    Используем OUTPUT chain с:
+    1. conntrack NEW для общего трафика
+    2. owner match для процесса Xray (UID 1001)
+    
     Whitelist добавляется отдельно в ensure_whitelist().
     """
-    # OUTPUT chain - для трафика самого сервера
-    # Используем conntrack NEW чтобы не блокировать ESTABLISHED соединения
+    # 1. OUTPUT chain - для общего трафика сервера
     result = run_command([
         "iptables", "-C", "OUTPUT",
         "-m", "conntrack", "--ctstate", "NEW",
@@ -232,6 +261,44 @@ def ensure_iptables_rule() -> bool:
     else:
         logger.info("Правило iptables OUTPUT уже существует")
 
+    # 2. OUTPUT chain - для трафика Xray (UID 1001)
+    result = run_command([
+        "iptables", "-C", "OUTPUT",
+        "-m", "owner", "--uid-owner", "1001",
+        "-m", "conntrack", "--ctstate", "NEW",
+        "-m", "set", "--match-set", IPSET_NAME, "dst",
+        "-j", "DROP"
+    ])
+
+    if result.returncode != 0:
+        # Находим позицию общего правила блокировки
+        result = run_command(["iptables", "-L", "OUTPUT", "-n", "--line-numbers"])
+        
+        block_line = None
+        for line in result.stdout.split('\n'):
+            if 'rkn_blocked' in line and 'DROP' in line:
+                block_line = line.split()[0]
+                break
+        
+        if block_line:
+            # Добавляем правило для UID 1001 ПЕРЕД общим правилом
+            result = run_command([
+                "iptables", "-I", "OUTPUT", block_line,
+                "-m", "owner", "--uid-owner", "1001",
+                "-m", "conntrack", "--ctstate", "NEW",
+                "-m", "set", "--match-set", IPSET_NAME, "dst",
+                "-j", "DROP"
+            ])
+            if result.returncode == 0:
+                logger.info("Правило iptables OUTPUT (UID 1001) добавлено успешно")
+            else:
+                logger.error(f"Не удалось добавить правило для UID 1001: {result.stderr}")
+                return False
+        else:
+            logger.warning("Не найдено правило блокировки для добавления UID 1001")
+    else:
+        logger.info("Правило iptables OUTPUT (UID 1001) уже существует")
+
     return True
 
 
@@ -249,6 +316,19 @@ def remove_iptables_rule() -> bool:
     else:
         logger.debug(f"Правило OUTPUT не найдено: {result.stderr}")
     
+    # Удаляем правило для UID 1001
+    result = run_command([
+        "iptables", "-D", "OUTPUT",
+        "-m", "owner", "--uid-owner", "1001",
+        "-m", "conntrack", "--ctstate", "NEW",
+        "-m", "set", "--match-set", IPSET_NAME, "dst",
+        "-j", "DROP"
+    ])
+    if result.returncode == 0:
+        logger.info("Правило iptables OUTPUT (UID 1001) удалено")
+    else:
+        logger.debug(f"Правило OUTPUT (UID 1001) не найдено: {result.stderr}")
+    
     # Удаляем whitelist правило из OUTPUT
     run_command([
         "iptables", "-D", "OUTPUT",
@@ -256,6 +336,15 @@ def remove_iptables_rule() -> bool:
         "-j", "ACCEPT"
     ])
     logger.debug("Whitelist rule removed from OUTPUT")
+    
+    # Удаляем whitelist правило для UID 1001
+    run_command([
+        "iptables", "-D", "OUTPUT",
+        "-m", "owner", "--uid-owner", "1001",
+        "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
+        "-j", "ACCEPT"
+    ])
+    logger.debug("Whitelist rule for UID 1001 removed from OUTPUT")
 
     return True
 
