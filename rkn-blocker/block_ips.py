@@ -182,8 +182,8 @@ def block_ips(ips: list) -> bool:
         logger.warning("Список IP пуст")
         return False
     
-    # Создаём временный файл для пакетной загрузки
-    temp_file = Path("/tmp/rkn_ipset_restore.txt")
+    # Используем директорию логов вместо /tmp
+    temp_file = LOG_DIR / "ipset_restore.txt"
     
     try:
         # Формируем команды для ipset restore
@@ -192,10 +192,7 @@ def block_ips(ips: list) -> bool:
             for ip in ips:
                 f.write(f"add {IPSET_NAME} {ip} -exist\n")
         
-        # Применяем пакетно
-        result = run_command(["ipset", "restore"], check=False)
-        
-        # Читаем stdin из файла
+        # Применяем пакетно через subprocess с stdin
         with open(temp_file, 'r') as f:
             result = subprocess.run(
                 ["ipset", "restore"],
@@ -214,11 +211,6 @@ def block_ips(ips: list) -> bool:
     except Exception as e:
         logger.error(f"Ошибка при добавлении IP: {e}")
         return False
-    
-    finally:
-        # Удаляем временный файл
-        if temp_file.exists():
-            temp_file.unlink()
 
 
 def enable_blocking() -> dict:

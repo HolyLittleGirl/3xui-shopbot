@@ -88,7 +88,7 @@ try:
         print(f'{key}: {value}')
 except:
     pass
-"
+" 2>/dev/null || cat
 }
 
 # Показать статус
@@ -131,7 +131,7 @@ enable_blocking() {
     local result=$(api_call POST "/enable")
     echo "$result" | format_json
     
-    if echo "$result" | grep -q '"success": true'; then
+    if echo "$result" | grep -q '"success": true' || echo "$result" | grep -q '"success":true'; then
         echo -e "${GREEN}✅ Блокировка включена${NC}"
     else
         echo -e "${RED}❌ Ошибка включения${NC}"
@@ -143,7 +143,7 @@ disable_blocking() {
     echo -e "${BLUE}Выключение блокировки...${NC}"
     local result=$(api_call POST "/disable")
     
-    if echo "$result" | grep -q '"success": true'; then
+    if echo "$result" | grep -q '"success": true' || echo "$result" | grep -q '"success":true'; then
         echo -e "${GREEN}✅ Блокировка выключена${NC}"
     else
         echo -e "${RED}❌ Ошибка выключения${NC}"
