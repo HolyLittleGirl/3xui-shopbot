@@ -1747,6 +1747,7 @@ def create_webhook_app(bot_controller_instance):
         return jsonify(status)
 
     @flask_app.route('/api/rkn/enable', methods=['POST'])
+    @csrf.exempt
     def rkn_enable():
         """Включить RKN блокировку."""
         from shop_bot.modules import rkn_client
@@ -1755,6 +1756,7 @@ def create_webhook_app(bot_controller_instance):
         return jsonify(result)
 
     @flask_app.route('/api/rkn/disable', methods=['POST'])
+    @csrf.exempt
     def rkn_disable():
         """Выключить RKN блокировку."""
         from shop_bot.modules import rkn_client
@@ -1763,6 +1765,7 @@ def create_webhook_app(bot_controller_instance):
         return jsonify(result)
 
     @flask_app.route('/api/rkn/update', methods=['POST'])
+    @csrf.exempt
     def rkn_update():
         """Обновить RKN списки блокировки."""
         from shop_bot.modules import rkn_client
