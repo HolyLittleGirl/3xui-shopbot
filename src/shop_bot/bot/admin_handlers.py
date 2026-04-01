@@ -2059,6 +2059,7 @@ def get_admin_router() -> Router:
             
             if result.get("success"):
                 action = result.get("action", "changed")
+                # Просто уведомление, не редактируем сообщение
                 await callback.message.answer(
                     f"✅ Блокировка {'включена' if action == 'enabled' else 'выключена'}"
                 )
