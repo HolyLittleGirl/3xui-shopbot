@@ -99,46 +99,78 @@ def ensure_ipset() -> bool:
 
 
 def ensure_iptables_rule() -> bool:
-    """Добавить правило iptables если отсутствует."""
-    # Проверяем наличие правила
+    """Добавить правило iptables если отсутствует (OUTPUT и FORWARD)."""
+    # OUTPUT chain - для трафика самого сервера
     result = run_command([
         "iptables", "-C", "OUTPUT",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
-    
-    if result.returncode == 0:
-        logger.info("Правило iptables уже существует")
-        return True
-    
-    # Добавляем правило
+
+    if result.returncode != 0:
+        # Добавляем правило в OUTPUT
+        result = run_command([
+            "iptables", "-I", "OUTPUT", "1",
+            "-m", "set", "--match-set", IPSET_NAME, "dst",
+            "-j", "DROP"
+        ])
+        if result.returncode == 0:
+            logger.info("Правило iptables OUTPUT добавлено успешно")
+        else:
+            logger.error(f"Не удалось добавить правило OUTPUT: {result.stderr}")
+            return False
+    else:
+        logger.info("Правило iptables OUTPUT уже существует")
+
+    # FORWARD chain - для трафика пользователей (VLESS proxy)
     result = run_command([
-        "iptables", "-I", "OUTPUT", "1",
+        "iptables", "-C", "FORWARD",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
-    
+
     if result.returncode != 0:
-        logger.error(f"Не удалось добавить правило iptables: {result.stderr}")
-        return False
-    
-    logger.info("Правило iptables добавлено успешно")
+        # Добавляем правило в FORWARD
+        result = run_command([
+            "iptables", "-I", "FORWARD", "1",
+            "-m", "set", "--match-set", IPSET_NAME, "dst",
+            "-j", "DROP"
+        ])
+        if result.returncode == 0:
+            logger.info("Правило iptables FORWARD добавлено успешно")
+        else:
+            logger.error(f"Не удалось добавить правило FORWARD: {result.stderr}")
+            return False
+    else:
+        logger.info("Правило iptables FORWARD уже существует")
+
     return True
 
 
 def remove_iptables_rule() -> bool:
-    """Удалить правило iptables."""
+    """Удалить правило iptables из OUTPUT и FORWARD."""
+    # Удаляем из OUTPUT
     result = run_command([
         "iptables", "-D", "OUTPUT",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
-    
-    if result.returncode != 0:
-        logger.warning(f"Правило iptables не найдено или ошибка удаления: {result.stderr}")
-        return False
-    
-    logger.info("Правило iptables удалено")
+    if result.returncode == 0:
+        logger.info("Правило iptables OUTPUT удалено")
+    else:
+        logger.warning(f"Правило OUTPUT не найдено: {result.stderr}")
+
+    # Удаляем из FORWARD
+    result = run_command([
+        "iptables", "-D", "FORWARD",
+        "-m", "set", "--match-set", IPSET_NAME, "dst",
+        "-j", "DROP"
+    ])
+    if result.returncode == 0:
+        logger.info("Правило iptables FORWARD удалено")
+    else:
+        logger.warning(f"Правило FORWARD не найдено: {result.stderr}")
+
     return True
 
 
