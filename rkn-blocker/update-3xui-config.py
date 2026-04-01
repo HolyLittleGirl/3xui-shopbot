@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Добавляет RKN блокировку в конфиг 3x-ui через базу данных
+Добавляет/удаляет RKN блокировку в конфиге 3x-ui через базу данных
+Usage:
+    python3 update-3xui-config.py enable   - Добавить RKN правила
+    python3 update-3xui-config.py disable  - Удалить RKN правила
 """
 import json
 import sqlite3
@@ -28,12 +31,11 @@ def get_blocked_ips():
     return ips
 
 def main():
-    blocked_ips = get_blocked_ips()
-    if not blocked_ips:
-        print("No blocked IPs found", file=sys.stderr)
+    if len(sys.argv) < 2:
+        print("Usage: python3 update-3xui-config.py [enable|disable]", file=sys.stderr)
         return 1
     
-    print(f"Found {len(blocked_ips)} blocked IPs")
+    action = sys.argv[1]
     
     # Читаем конфиг из базы
     conn = sqlite3.connect(DB_PATH)
@@ -52,35 +54,53 @@ def main():
         print(f"Error parsing config: {e}", file=sys.stderr)
         return 1
     
-    # Добавляем RKN правило в routing
     routing = config.get('routing', {})
     rules = routing.get('rules', [])
     
-    # Проверяем есть ли уже правило RKN
-    rkn_exists = False
-    for rule in rules:
-        if rule.get('ip') and any('35.159.54.0/24' in str(ip) for ip in rule.get('ip', [])):
-            rkn_exists = True
-            # Обновляем правило
-            rule['ip'] = blocked_ips[:500]
-            print("Updated existing RKN rule", file=sys.stderr)
-            break
-    
-    if not rkn_exists:
-        # Находим позицию для вставки (ПЕРЕД outbound правилами)
-        insert_index = len(rules)
-        for i, rule in enumerate(rules):
-            if 'inboundTag' not in rule and 'outboundTag' in rule and rule['outboundTag'] not in ['api', 'blocked']:
-                insert_index = i
+    if action == 'enable':
+        blocked_ips = get_blocked_ips()
+        if not blocked_ips:
+            print("No blocked IPs found", file=sys.stderr)
+            return 1
+        
+        print(f"Found {len(blocked_ips)} blocked IPs")
+        
+        # Проверяем есть ли уже правило RKN
+        rkn_exists = False
+        for rule in rules:
+            if rule.get('ip') and any('35.159.54.0/24' in str(ip) for ip in rule.get('ip', [])):
+                rkn_exists = True
+                # Обновляем правило
+                rule['ip'] = blocked_ips[:500]
+                print("Updated existing RKN rule", file=sys.stderr)
                 break
         
-        rkn_rule = {
-            'type': 'field',
-            'ip': blocked_ips[:500],
-            'outboundTag': 'blocked'
-        }
-        rules.insert(insert_index, rkn_rule)
-        print(f"Added RKN rule at index {insert_index}", file=sys.stderr)
+        if not rkn_exists:
+            # Находим позицию для вставки (ПЕРЕД outbound правилами)
+            insert_index = len(rules)
+            for i, rule in enumerate(rules):
+                if 'inboundTag' not in rule and 'outboundTag' in rule and rule['outboundTag'] not in ['api', 'blocked']:
+                    insert_index = i
+                    break
+            
+            rkn_rule = {
+                'type': 'field',
+                'ip': blocked_ips[:500],
+                'outboundTag': 'blocked',
+                '_rkn_blocker': True  # Маркер что это RKN правило
+            }
+            rules.insert(insert_index, rkn_rule)
+            print(f"Added RKN rule at index {insert_index}", file=sys.stderr)
+    
+    elif action == 'disable':
+        # Удаляем RKN правила (с маркером '_rkn_blocker')
+        original_count = len(rules)
+        rules = [
+            rule for rule in rules
+            if not rule.get('_rkn_blocker')
+        ]
+        removed_count = original_count - len(rules)
+        print(f"Removed {removed_count} RKN rules", file=sys.stderr)
     
     routing['rules'] = rules
     config['routing'] = routing
