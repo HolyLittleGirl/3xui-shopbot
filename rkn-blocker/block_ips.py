@@ -101,6 +101,110 @@ def ensure_ipset() -> bool:
 # Xray VLESS порты для блокировки
 XRAY_PORTS = [5443, 6443, 7443, 8443]
 
+# Whitelist для аутбаундов (заполняется автоматически)
+WHITELIST_IPSET = "rkn_whitelist"
+XUI_DB_PATH = "/etc/x-ui/x-ui.db"
+
+
+def get_outbound_ips() -> list:
+    """Получить IP аутбаундов из базы 3x-ui."""
+    import subprocess
+    import re
+    
+    outbound_ips = []
+    
+    try:
+        # Извлекаем target из realitySettings
+        result = subprocess.run(
+            ["sqlite3", XUI_DB_PATH, "SELECT stream_settings FROM inbounds WHERE stream_settings LIKE '%target%';"],
+            capture_output=True, text=True, timeout=10
+        )
+        
+        if result.returncode == 0:
+            for line in result.stdout.strip().split('\n'):
+                # Извлекаем target из JSON
+                match = re.search(r'"target":"([^"]+)"', line)
+                if match:
+                    target = match.group(1)
+                    hostname = target.split(':')[0]
+                    
+                    # Резолвим hostname в IP
+                    try:
+                        ip_result = subprocess.run(
+                            ["getent", "hosts", hostname],
+                            capture_output=True, text=True, timeout=5
+                        )
+                        if ip_result.returncode == 0:
+                            for ip_line in ip_result.stdout.strip().split('\n'):
+                                ip = ip_line.split()[0]
+                                # Только IPv4
+                                if '.' in ip and ':' not in ip:
+                                    outbound_ips.append(ip)
+                    except Exception:
+                        pass
+    except Exception as e:
+        logger.warning(f"Failed to get outbound IPs: {e}")
+    
+    return outbound_ips
+
+
+def ensure_whitelist() -> bool:
+    """Создать whitelist и добавить аутбаунды."""
+    # Создаём ipset
+    result = run_command(["ipset", "create", WHITELIST_IPSET, "hash:net", "maxelem", "1024"])
+    if result.returncode != 0 and "already exists" not in result.stderr:
+        logger.warning(f"Failed to create whitelist ipset: {result.stderr}")
+    
+    # Получаем аутбаунды
+    outbound_ips = get_outbound_ips()
+    logger.info(f"Found {len(outbound_ips)} outbound IPs: {outbound_ips}")
+    
+    # Добавляем в whitelist
+    for ip in outbound_ips:
+        run_command(["ipset", "add", WHITELIST_IPSET, ip])
+    
+    # Добавляем Apple range (для iCloud)
+    run_command(["ipset", "add", WHITELIST_IPSET, "17.0.0.0/8"])
+    
+    # Проверяем есть ли уже правило whitelist
+    result = run_command([
+        "iptables", "-C", "FORWARD",
+        "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
+        "-j", "ACCEPT"
+    ])
+    
+    if result.returncode != 0:
+        # Добавляем правило ПЕРЕД правилами блокировки RKN
+        # Сначала находим позицию первого правила RKN
+        result = run_command([
+            "iptables", "-L", "FORWARD", "-n", "--line-numbers"
+        ])
+        
+        rkn_line = None
+        for line in result.stdout.split('\n'):
+            if 'rkn_blocked' in line:
+                rkn_line = line.split()[0]
+                break
+        
+        if rkn_line:
+            # Вставляем whitelist перед первым правилом RKN
+            run_command([
+                "iptables", "-I", "FORWARD", rkn_line,
+                "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
+                "-j", "ACCEPT"
+            ])
+        else:
+            # Если нет правил RKN, добавляем в начало
+            run_command([
+                "iptables", "-I", "FORWARD", "1",
+                "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
+                "-j", "ACCEPT"
+            ])
+        
+        logger.info("Whitelist rule added to FORWARD chain (before RKN rules)")
+    
+    return True
+
 
 def ensure_iptables_rule() -> bool:
     """Добавить правило iptables если отсутствует."""
@@ -180,7 +284,15 @@ def remove_iptables_rule() -> bool:
         if result.returncode == 0:
             logger.info(f"Правило FORWARD для порта {port} удалено")
         else:
-            logger.warning(f"Правило FORWARD для порта {port} не найдено")
+            logger.debug(f"Правило FORWARD для порта {port} не найдено")
+    
+    # Удаляем whitelist правило
+    run_command([
+        "iptables", "-D", "FORWARD",
+        "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
+        "-j", "ACCEPT"
+    ])
+    logger.info("Whitelist rule removed from FORWARD")
 
     return True
 
@@ -275,9 +387,12 @@ def enable_blocking() -> dict:
     if not block_ips(ips):
         return {"success": False, "error": "Не удалось добавить IP в ipset"}
     
-    # Добавляем правило iptables
+    # Сначала добавляем правила блокировки
     if not ensure_iptables_rule():
-        return {"success": False, "error": "Не удалось добавить правило iptables"}
+        return {"success": False, "error": "Не удалось добавить правила iptables"}
+    
+    # ПОСЛЕ правил блокировки добавляем whitelist (чтобы whitelist был ПЕРЕД блокировкой)
+    ensure_whitelist()
     
     # Сохраняем состояние
     state["enabled"] = True
