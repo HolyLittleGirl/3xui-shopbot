@@ -98,9 +98,13 @@ def ensure_ipset() -> bool:
     return True
 
 
+# Xray VLESS порты для блокировки
+XRAY_PORTS = [5443, 6443, 7443, 8443]
+
+
 def ensure_iptables_rule() -> bool:
-    """Добавить правило iptables если отсутствует (OUTPUT и FORWARD)."""
-    # OUTPUT chain - для трафика самого сервера и Xray (VLESS users)
+    """Добавить правило iptables если отсутствует."""
+    # OUTPUT chain - для трафика самого сервера
     # Используем conntrack NEW чтобы не блокировать ESTABLISHED соединения
     result = run_command([
         "iptables", "-C", "OUTPUT",
@@ -110,7 +114,6 @@ def ensure_iptables_rule() -> bool:
     ])
 
     if result.returncode != 0:
-        # Добавляем правило в OUTPUT
         result = run_command([
             "iptables", "-I", "OUTPUT", "1",
             "-m", "conntrack", "--ctstate", "NEW",
@@ -125,15 +128,36 @@ def ensure_iptables_rule() -> bool:
     else:
         logger.info("Правило iptables OUTPUT уже существует")
 
-    # FORWARD chain НЕ используем - это ломает VLESS проксирование
-    # Вместо этого OUTPUT с conntrack NEW блокирует только новые исходящие соединения
+    # FORWARD chain - для трафика пользователей VLESS (порты Xray)
+    for port in XRAY_PORTS:
+        result = run_command([
+            "iptables", "-C", "FORWARD",
+            "-p", "tcp", "--sport", str(port),
+            "-m", "set", "--match-set", IPSET_NAME, "dst",
+            "-j", "DROP"
+        ])
+        
+        if result.returncode != 0:
+            result = run_command([
+                "iptables", "-I", "FORWARD", "1",
+                "-p", "tcp", "--sport", str(port),
+                "-m", "set", "--match-set", IPSET_NAME, "dst",
+                "-j", "DROP"
+            ])
+            if result.returncode == 0:
+                logger.info(f"Правило iptables FORWARD для порта {port} добавлено успешно")
+            else:
+                logger.error(f"Не удалось добавить правило FORWARD для порта {port}: {result.stderr}")
+                return False
+        else:
+            logger.info(f"Правило iptables FORWARD для порта {port} уже существует")
 
     return True
 
 
 def remove_iptables_rule() -> bool:
-    """Удалить правило iptables из OUTPUT."""
-    # Удаляем правило с conntrack
+    """Удалить правила iptables из OUTPUT и FORWARD."""
+    # Удаляем правило OUTPUT с conntrack
     result = run_command([
         "iptables", "-D", "OUTPUT",
         "-m", "conntrack", "--ctstate", "NEW",
@@ -145,12 +169,18 @@ def remove_iptables_rule() -> bool:
     else:
         logger.warning(f"Правило OUTPUT не найдено: {result.stderr}")
 
-    # Также пробуем удалить старое правило без conntrack (для совместимости)
-    run_command([
-        "iptables", "-D", "OUTPUT",
-        "-m", "set", "--match-set", IPSET_NAME, "dst",
-        "-j", "DROP"
-    ], check=False)
+    # Удаляем правила FORWARD для портов Xray
+    for port in XRAY_PORTS:
+        result = run_command([
+            "iptables", "-D", "FORWARD",
+            "-p", "tcp", "--sport", str(port),
+            "-m", "set", "--match-set", IPSET_NAME, "dst",
+            "-j", "DROP"
+        ])
+        if result.returncode == 0:
+            logger.info(f"Правило FORWARD для порта {port} удалено")
+        else:
+            logger.warning(f"Правило FORWARD для порта {port} не найдено")
 
     return True
 
