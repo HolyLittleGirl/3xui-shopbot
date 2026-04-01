@@ -887,7 +887,8 @@
         }
         
         const d = data.data || data;
-        const enabled = d.enabled === true || d.enabled === 'true' || d.ipset_exists;
+        // Статус определяется по enabled + ipset_exists + iptables_exists
+        const enabled = (d.enabled === true) && d.ipset_exists && d.iptables_exists;
         
         const statusHtml = `
           <div class="alert ${enabled ? 'alert-success' : 'alert-secondary'}">
@@ -918,9 +919,19 @@
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Выполнение...';
     
     fetch('/api/rkn/' + action, {
-      method: 'POST'
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
     })
-    .then(r => r.json())
+    .then(r => {
+      // Проверяем что это JSON ответ
+      const contentType = r.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Сервер вернул не JSON ответ');
+      }
+      return r.json();
+    })
     .then(data => {
       if (data.success) {
         alert('✅ ' + (action === 'enable' ? 'Блокировка включена' : action === 'disable' ? 'Блокировка выключена' : 'Списки обновлены'));

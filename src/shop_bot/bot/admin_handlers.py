@@ -2024,8 +2024,8 @@ def get_admin_router() -> Router:
             f"Статус: {'✅ ВКЛЮЧЕНО' if enabled else '❌ ОТКЛЮЧЕНО'}\n"
             f"Заблокировано IP: {blocked_count}\n"
             f"Последнее обновление: {last_update_str}\n\n"
-            "Блокировка происходит на уровне сервера через iptables/ipset.\n"
-            "Обновление списков каждые 30 минут."
+            "Блокировка запрещённых ресурсов РФ.\n"
+            "Автообновление: ежедневно в 04:00"
         )
         
         builder = InlineKeyboardBuilder()
@@ -2036,10 +2036,9 @@ def get_admin_router() -> Router:
             builder.button(text="✅ Включить", callback_data="admin_rkn_toggle")
         
         builder.button(text="⬇️ Обновить списки", callback_data="admin_rkn_update")
-        builder.button(text="⚙️ Настройки", callback_data="admin_rkn_settings")
         builder.button(text="⬅️ В админ-меню", callback_data="admin_menu")
         
-        builder.adjust(2, 2, 1)
+        builder.adjust(2, 2)
         
         await callback.message.edit_text(text, reply_markup=builder.as_markup())
     
@@ -2099,34 +2098,5 @@ def get_admin_router() -> Router:
         
         except Exception as e:
             await wait_message.edit_text(f"❌ Ошибка: {e}")
-    
-    @admin_router.callback_query(F.data == "admin_rkn_settings")
-    async def admin_rkn_settings(callback: types.CallbackQuery):
-        """Показать настройки RKN."""
-        if not is_admin(callback.from_user.id):
-            await callback.answer("У вас нет прав.", show_alert=True)
-            return
-        
-        await callback.answer()
-        
-        from shop_bot.data_manager.database import get_setting
-        
-        api_url = get_setting("rkn_api_url") or "http://127.0.0.1:8765"
-        api_token = get_setting("rkn_api_token")
-        token_masked = (api_token[:4] + "..." + api_token[-4:]) if api_token and len(api_token) > 8 else "Не установлен"
-        
-        text = (
-            "⚙️ <b>Настройки RKN блокировщика</b>\n\n"
-            f"<b>API URL:</b> <code>{api_url}</code>\n"
-            f"<b>API Token:</b> <code>{token_masked}</code>\n\n"
-            "Для изменения настроек используйте веб-панель:\n"
-            "Настройки → Панель → РКН Блокировка"
-        )
-        
-        builder = InlineKeyboardBuilder()
-        builder.button(text="⬅️ Назад", callback_data="admin_rkn_menu")
-        builder.adjust(1)
-        
-        await callback.message.edit_text(text, reply_markup=builder.as_markup())
 
     return admin_router
