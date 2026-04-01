@@ -202,57 +202,49 @@ def ensure_whitelist() -> bool:
 
 
 def ensure_iptables_rule() -> bool:
-    """Добавить правило iptables если отсутствует.
+    """Добавить правило iptables FORWARD для блокировки всего трафика к заблокированным IP.
     
-    Используем OUTPUT chain с conntrack NEW.
+    WhiteVPN подход: блокируем на уровне ядра через FORWARD chain.
+    Это работает для ВСЕГО трафика, включая Xray.
     """
-    # OUTPUT chain - для общего трафика
+    # Проверяем наличие правила
     result = run_command([
-        "iptables", "-C", "OUTPUT",
-        "-m", "conntrack", "--ctstate", "NEW",
+        "iptables", "-C", "FORWARD",
+        "-m", "set", "--match-set", IPSET_NAME, "dst",
+        "-j", "DROP"
+    ])
+
+    if result.returncode == 0:
+        logger.info("Правило iptables FORWARD уже существует")
+        return True
+
+    # Добавляем правило в НАЧАЛО FORWARD chain
+    result = run_command([
+        "iptables", "-I", "FORWARD", "1",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
 
     if result.returncode != 0:
-        result = run_command([
-            "iptables", "-I", "OUTPUT", "1",
-            "-m", "conntrack", "--ctstate", "NEW",
-            "-m", "set", "--match-set", IPSET_NAME, "dst",
-            "-j", "DROP"
-        ])
-        if result.returncode == 0:
-            logger.info("Правило iptables OUTPUT (conntrack NEW) добавлено успешно")
-        else:
-            logger.error(f"Не удалось добавить правило OUTPUT: {result.stderr}")
-            return False
-    else:
-        logger.info("Правило iptables OUTPUT уже существует")
+        logger.error(f"Не удалось добавить правило FORWARD: {result.stderr}")
+        return False
 
+    logger.info("Правило iptables FORWARD добавлено успешно (WhiteVPN подход)")
     return True
 
 
 def remove_iptables_rule() -> bool:
-    """Удалить правила iptables из OUTPUT."""
-    # Удаляем правило OUTPUT с conntrack
+    """Удалить правило iptables FORWARD."""
     result = run_command([
-        "iptables", "-D", "OUTPUT",
-        "-m", "conntrack", "--ctstate", "NEW",
+        "iptables", "-D", "FORWARD",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
-    if result.returncode == 0:
-        logger.info("Правило iptables OUTPUT удалено")
-    else:
-        logger.debug(f"Правило OUTPUT не найдено: {result.stderr}")
     
-    # Удаляем whitelist правило из OUTPUT
-    run_command([
-        "iptables", "-D", "OUTPUT",
-        "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
-        "-j", "ACCEPT"
-    ])
-    logger.debug("Whitelist rule removed from OUTPUT")
+    if result.returncode == 0:
+        logger.info("Правило iptables FORWARD удалено")
+    else:
+        logger.debug(f"Правило FORWARD не найдено: {result.stderr}")
 
     return True
 
@@ -361,29 +353,6 @@ def enable_blocking() -> dict:
     save_state(state)
     
     logger.info(f"Блокировка включена. Заблокировано {len(ips)} IP адресов")
-    
-    # Обновляем правила Xray (ПОСЛЕ сохранения состояния)
-    try:
-        import subprocess
-        import time
-        time.sleep(1)  # Ждём пока ipset полностью обновится
-        
-        # 1. IP блокировка
-        result = subprocess.run(
-            ['python3', '/opt/rkn-blocker/update-xray-rules.py'],
-            capture_output=True, text=True, timeout=60
-        )
-        logger.info(f"Xray IP rules updated: {result.stdout.strip()}")
-        
-        # 2. Доменная блокировка
-        result = subprocess.run(
-            ['python3', '/opt/rkn-blocker/update-xray-domains.py'],
-            capture_output=True, text=True, timeout=60
-        )
-        logger.info(f"Xray domain rules updated: {result.stdout.strip()}")
-    except Exception as e:
-        logger.warning(f"Failed to update Xray rules: {e}")
-    
     return {
         "success": True,
         "blocked_count": len(ips),
