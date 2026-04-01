@@ -100,9 +100,11 @@ def ensure_ipset() -> bool:
 
 def ensure_iptables_rule() -> bool:
     """Добавить правило iptables если отсутствует (OUTPUT и FORWARD)."""
-    # OUTPUT chain - для трафика самого сервера
+    # OUTPUT chain - для трафика самого сервера и Xray (VLESS users)
+    # Используем conntrack NEW чтобы не блокировать ESTABLISHED соединения
     result = run_command([
         "iptables", "-C", "OUTPUT",
+        "-m", "conntrack", "--ctstate", "NEW",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
@@ -111,47 +113,30 @@ def ensure_iptables_rule() -> bool:
         # Добавляем правило в OUTPUT
         result = run_command([
             "iptables", "-I", "OUTPUT", "1",
+            "-m", "conntrack", "--ctstate", "NEW",
             "-m", "set", "--match-set", IPSET_NAME, "dst",
             "-j", "DROP"
         ])
         if result.returncode == 0:
-            logger.info("Правило iptables OUTPUT добавлено успешно")
+            logger.info("Правило iptables OUTPUT (conntrack NEW) добавлено успешно")
         else:
             logger.error(f"Не удалось добавить правило OUTPUT: {result.stderr}")
             return False
     else:
         logger.info("Правило iptables OUTPUT уже существует")
 
-    # FORWARD chain - для трафика пользователей (VLESS proxy)
-    result = run_command([
-        "iptables", "-C", "FORWARD",
-        "-m", "set", "--match-set", IPSET_NAME, "dst",
-        "-j", "DROP"
-    ])
-
-    if result.returncode != 0:
-        # Добавляем правило в FORWARD
-        result = run_command([
-            "iptables", "-I", "FORWARD", "1",
-            "-m", "set", "--match-set", IPSET_NAME, "dst",
-            "-j", "DROP"
-        ])
-        if result.returncode == 0:
-            logger.info("Правило iptables FORWARD добавлено успешно")
-        else:
-            logger.error(f"Не удалось добавить правило FORWARD: {result.stderr}")
-            return False
-    else:
-        logger.info("Правило iptables FORWARD уже существует")
+    # FORWARD chain НЕ используем - это ломает VLESS проксирование
+    # Вместо этого OUTPUT с conntrack NEW блокирует только новые исходящие соединения
 
     return True
 
 
 def remove_iptables_rule() -> bool:
-    """Удалить правило iptables из OUTPUT и FORWARD."""
-    # Удаляем из OUTPUT
+    """Удалить правило iptables из OUTPUT."""
+    # Удаляем правило с conntrack
     result = run_command([
         "iptables", "-D", "OUTPUT",
+        "-m", "conntrack", "--ctstate", "NEW",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
@@ -160,16 +145,12 @@ def remove_iptables_rule() -> bool:
     else:
         logger.warning(f"Правило OUTPUT не найдено: {result.stderr}")
 
-    # Удаляем из FORWARD
-    result = run_command([
-        "iptables", "-D", "FORWARD",
+    # Также пробуем удалить старое правило без conntrack (для совместимости)
+    run_command([
+        "iptables", "-D", "OUTPUT",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
-    ])
-    if result.returncode == 0:
-        logger.info("Правило iptables FORWARD удалено")
-    else:
-        logger.warning(f"Правило FORWARD не найдено: {result.stderr}")
+    ], check=False)
 
     return True
 
