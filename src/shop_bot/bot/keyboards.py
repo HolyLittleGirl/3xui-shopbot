@@ -309,7 +309,7 @@ def create_payment_method_keyboard(
 
     # Внешние способы оплаты - только рубли
     if payment_methods and payment_methods.get("yookassa"):
-        btn_text = "🏦 СБП / Банковская карта"
+        btn_text = "🏦 СБП / Карты"
         if price is not None:
             btn_text += f" - {price:.0f} RUB"
         if get_setting("sbp_enabled"):
@@ -322,7 +322,7 @@ def create_payment_method_keyboard(
         heleket_merchant = get_setting("heleket_merchant_id")
         heleket_api_key = get_setting("heleket_api_key")
         if heleket_merchant and heleket_api_key:
-            btn_text = "🤖 Heleket (BTC, ETH, USDT)"
+            btn_text = "🤖 Heleket - криптовалюта"
             if price is not None:
                 btn_text += f" - {price:.0f} RUB"
             builder.button(text=btn_text, callback_data="pay_heleket")
@@ -332,7 +332,7 @@ def create_payment_method_keyboard(
         yoomoney_wallet = get_setting("yoomoney_wallet_id")
         yoomoney_api_key = get_setting("yoomoney_api_key")
         if yoomoney_wallet and yoomoney_api_key:
-            btn_text = "💳 YooMoney (ЮMoney)"
+            btn_text = "💳 YooMoney (ЮМани) "
             if price is not None:
                 btn_text += f" - {price:.0f} RUB"
             builder.button(text=btn_text, callback_data="pay_yoomoney")
@@ -341,7 +341,7 @@ def create_payment_method_keyboard(
     if payment_methods and payment_methods.get("cryptobot"):
         cryptobot_token = get_setting("cryptobot_token")
         if cryptobot_token:
-            btn_text = "🤖 CryptoBot (криптовалюта)"
+            btn_text = "🤖 CryptoBot - криптовалюта"
             if price is not None:
                 btn_text += f" - {price:.0f} RUB"
             builder.button(text=btn_text, callback_data="pay_cryptobot")
@@ -354,7 +354,7 @@ def create_payment_method_keyboard(
         logger.info(f"Creating TON button with callback_data: '{callback_data_ton}'")
         builder.button(text=btn_text, callback_data=callback_data_ton)
     if payment_methods and payment_methods.get("stars"):
-        btn_text = "⭐ Telegram Stars (Карты РФ и SberPay)"
+        btn_text = "⭐ Telegram Stars - Карты / SberPay"
         if price_stars is not None and price_stars > 0:
             btn_text += f" - {price_stars}⭐"
         builder.button(text=btn_text, callback_data="pay_stars")
