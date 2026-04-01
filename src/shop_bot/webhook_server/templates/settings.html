@@ -740,7 +740,7 @@
 						</div>
 						<div class="form-text">
 							Автоматическая блокировка доступа к ресурсам, запрещённым в РФ.
-							Обновление списков каждые 30 минут.
+							Обновление списков ежедневно в 04:00 (MSK).
 						</div>
 					</div>
 
@@ -926,14 +926,16 @@
     fetch('/api/rkn/' + action, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       }
     })
     .then(r => {
-      // Проверяем что это JSON ответ
       const contentType = r.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Сервер вернул не JSON ответ');
+        return r.text().then(text => {
+          throw new Error('Сервер вернул не JSON: ' + text.substring(0, 100));
+        });
       }
       return r.json();
     })
@@ -941,8 +943,11 @@
       if (data.success) {
         alert('✅ ' + (action === 'enable' ? 'Блокировка включена' : action === 'disable' ? 'Блокировка выключена' : 'Списки обновлены'));
         loadRKNStatus();
+      } else if (data.error) {
+        alert('❌ Ошибка: ' + data.error);
       } else {
-        alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        alert('✅ Выполнено');
+        loadRKNStatus();
       }
     })
     .catch(err => {
