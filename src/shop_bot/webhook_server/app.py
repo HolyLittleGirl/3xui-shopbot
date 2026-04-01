@@ -38,7 +38,7 @@ from shop_bot.data_manager.database import (
     update_host_url, update_host_name, update_host_ssh_settings, get_latest_speedtest, get_speedtests,
     get_all_keys, get_keys_for_user, get_key_by_id, delete_key_by_id, update_key_comment, update_key_info,
     add_new_key, get_balance, adjust_user_balance, get_referrals_for_user,
-    get_user, get_key_by_email
+    get_user, get_key_by_email, get_host
 )
 
 _bot_controller = None
