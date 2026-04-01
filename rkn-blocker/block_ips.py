@@ -202,49 +202,80 @@ def ensure_whitelist() -> bool:
 
 
 def ensure_iptables_rule() -> bool:
-    """Добавить правило iptables FORWARD для блокировки всего трафика к заблокированным IP.
+    """Добавить правила iptables для блокировки всего трафика к заблокированным IP.
     
-    WhiteVPN подход: блокируем на уровне ядра через FORWARD chain.
-    Это работает для ВСЕГО трафика, включая Xray.
+    WhiteVPN подход: блокируем на уровне ядра через FORWARD и OUTPUT chains.
+    FORWARD - для проходящего трафика
+    OUTPUT - для трафика исходящего с сервера (включая Xray)
     """
-    # Проверяем наличие правила
+    # FORWARD chain - для проходящего трафика
     result = run_command([
         "iptables", "-C", "FORWARD",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
 
-    if result.returncode == 0:
+    if result.returncode != 0:
+        result = run_command([
+            "iptables", "-I", "FORWARD", "1",
+            "-m", "set", "--match-set", IPSET_NAME, "dst",
+            "-j", "DROP"
+        ])
+        if result.returncode == 0:
+            logger.info("Правило iptables FORWARD добавлено успешно")
+        else:
+            logger.error(f"Не удалось добавить правило FORWARD: {result.stderr}")
+            return False
+    else:
         logger.info("Правило iptables FORWARD уже существует")
-        return True
 
-    # Добавляем правило в НАЧАЛО FORWARD chain
+    # OUTPUT chain - для трафика сервера (включая Xray)
     result = run_command([
-        "iptables", "-I", "FORWARD", "1",
+        "iptables", "-C", "OUTPUT",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
 
     if result.returncode != 0:
-        logger.error(f"Не удалось добавить правило FORWARD: {result.stderr}")
-        return False
+        result = run_command([
+            "iptables", "-I", "OUTPUT", "1",
+            "-m", "set", "--match-set", IPSET_NAME, "dst",
+            "-j", "DROP"
+        ])
+        if result.returncode == 0:
+            logger.info("Правило iptables OUTPUT добавлено успешно")
+        else:
+            logger.error(f"Не удалось добавить правило OUTPUT: {result.stderr}")
+            return False
+    else:
+        logger.info("Правило iptables OUTPUT уже существует")
 
-    logger.info("Правило iptables FORWARD добавлено успешно (WhiteVPN подход)")
     return True
 
 
 def remove_iptables_rule() -> bool:
-    """Удалить правило iptables FORWARD."""
+    """Удалить правила iptables из FORWARD и OUTPUT."""
+    # Удаляем правило FORWARD
     result = run_command([
         "iptables", "-D", "FORWARD",
         "-m", "set", "--match-set", IPSET_NAME, "dst",
         "-j", "DROP"
     ])
-    
     if result.returncode == 0:
         logger.info("Правило iptables FORWARD удалено")
     else:
         logger.debug(f"Правило FORWARD не найдено: {result.stderr}")
+
+    # Удаляем правило OUTPUT
+    result = run_command([
+        "iptables", "-D", "OUTPUT",
+        "-m", "set", "--match-set", IPSET_NAME, "dst",
+        "-j", "DROP"
+    ])
+    if result.returncode == 0:
+        logger.info("Правило iptables OUTPUT удалено")
+    else:
+        logger.debug(f"Правило OUTPUT не найдено: {result.stderr}")
 
     return True
 
