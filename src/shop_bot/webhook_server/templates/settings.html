@@ -886,11 +886,14 @@
           return;
         }
         
+        const d = data.data || data;
+        const enabled = d.enabled === true || d.enabled === 'true' || d.ipset_exists;
+        
         const statusHtml = `
-          <div class="alert ${data.enabled ? 'alert-success' : 'alert-secondary'}">
-            <strong>Статус:</strong> ${data.enabled ? '✅ Активно' : '❌ Отключено'}<br>
-            ${data.blocked_count !== undefined ? `<strong>Заблокировано IP:</strong> ${data.blocked_count}<br>` : ''}
-            ${data.last_update ? `<strong>Последнее обновление:</strong> ${new Date(data.last_update).toLocaleString()}` : ''}
+          <div class="alert ${enabled ? 'alert-success' : 'alert-secondary'}">
+            <strong>Статус:</strong> ${enabled ? '✅ Активно' : '❌ Отключено'}<br>
+            ${d.blocked_count !== undefined ? `<strong>Заблокировано IP:</strong> ${d.blocked_count}<br>` : ''}
+            ${d.last_update ? `<strong>Последнее обновление:</strong> ${new Date(d.last_update).toLocaleString()}` : ''}
           </div>
         `;
         container.innerHTML = statusHtml;
@@ -901,13 +904,6 @@
   }
 
   function rknAction(action) {
-    const token = document.getElementById('rkn_api_token')?.value;
-    if (!token) {
-      alert('⚠️ Сначала укажите RKN API Token в настройках выше');
-      document.getElementById('rkn_api_token')?.focus();
-      return;
-    }
-    
     const actions = {
       'enable': 'Включить блокировку?',
       'disable': 'Выключить блокировку?',
@@ -922,9 +918,7 @@
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Выполнение...';
     
     fetch('/api/rkn/' + action, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({token: token})
+      method: 'POST'
     })
     .then(r => r.json())
     .then(data => {

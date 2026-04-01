@@ -1740,21 +1740,30 @@ def create_webhook_app(bot_controller_instance):
     
     def _run_rkn_command(action: str) -> dict:
         """
-        Выполнить команду RKN блокировщика через subprocess.
-        Команды выполняются НА ХОСТЕ, не в контейнере.
+        Выполнить команду RKN блокировщика.
+        Вызываем напрямую блок-скрипт на хосте (смонтирован в контейнер).
         """
         import subprocess
-        import json
         
         try:
-            # Выполняем команду на хосте
-            cmd = ['sudo', '/usr/local/bin/rkn-block', action]
+            # Выполняем блок-скрипт через смонтированный volume
+            if action == 'status':
+                cmd = ['python3', '/host-rkn-blocker/block_ips.py', 'status', '--json']
+            elif action == 'enable':
+                cmd = ['python3', '/host-rkn-blocker/block_ips.py', 'enable', '--json']
+            elif action == 'disable':
+                cmd = ['python3', '/host-rkn-blocker/block_ips.py', 'disable', '--json']
+            elif action == 'update':
+                cmd = ['python3', '/host-rkn-blocker/block_ips.py', 'update', '--json']
+            else:
+                return {"success": False, "error": f"Unknown action: {action}"}
+            
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             
             if result.returncode == 0:
-                # Парсим вывод
-                output = result.stdout.strip()
-                return {"success": True, "output": output, "action": action}
+                import json
+                output = json.loads(result.stdout.strip())
+                return {"success": True, "data": output, "action": action}
             else:
                 logger.error(f"RKN command failed: {result.stderr}")
                 return {"success": False, "error": result.stderr or "Command failed", "action": action}
