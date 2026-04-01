@@ -367,11 +367,20 @@ def enable_blocking() -> dict:
         import subprocess
         import time
         time.sleep(1)  # Ждём пока ipset полностью обновится
+        
+        # 1. IP блокировка
         result = subprocess.run(
             ['python3', '/opt/rkn-blocker/update-xray-rules.py'],
             capture_output=True, text=True, timeout=60
         )
-        logger.info(f"Xray routing rules updated: {result.stdout.strip()}")
+        logger.info(f"Xray IP rules updated: {result.stdout.strip()}")
+        
+        # 2. Доменная блокировка
+        result = subprocess.run(
+            ['python3', '/opt/rkn-blocker/update-xray-domains.py'],
+            capture_output=True, text=True, timeout=60
+        )
+        logger.info(f"Xray domain rules updated: {result.stdout.strip()}")
     except Exception as e:
         logger.warning(f"Failed to update Xray rules: {e}")
     
