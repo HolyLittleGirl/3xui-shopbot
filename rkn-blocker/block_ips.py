@@ -347,12 +347,23 @@ def enable_blocking() -> dict:
     if not block_ips(ips):
         return {"success": False, "error": "Не удалось добавить IP в ipset"}
     
-    # Сначала добавляем правила блокировки
+    # Добавляем правила iptables
     if not ensure_iptables_rule():
         return {"success": False, "error": "Не удалось добавить правила iptables"}
     
-    # ПОСЛЕ правил блокировки добавляем whitelist (чтобы whitelist был ПЕРЕД блокировкой)
+    # Добавляем whitelist
     ensure_whitelist()
+    
+    # Обновляем правила Xray
+    try:
+        import subprocess
+        subprocess.run(
+            ['python3', '/opt/rkn-blocker/update-xray-rules.py'],
+            capture_output=True, text=True, timeout=30
+        )
+        logger.info("Xray routing rules updated")
+    except Exception as e:
+        logger.warning(f"Failed to update Xray rules: {e}")
     
     # Сохраняем состояние
     state["enabled"] = True
