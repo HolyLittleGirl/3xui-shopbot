@@ -166,19 +166,16 @@ def ensure_whitelist() -> bool:
     # Добавляем Apple range (для iCloud)
     run_command(["ipset", "add", WHITELIST_IPSET, "17.0.0.0/8"])
     
-    # Проверяем есть ли уже правило whitelist
+    # Добавляем правило в OUTPUT chain (ПЕРЕД правилом блокировки)
     result = run_command([
-        "iptables", "-C", "FORWARD",
+        "iptables", "-C", "OUTPUT",
         "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
         "-j", "ACCEPT"
     ])
     
     if result.returncode != 0:
-        # Добавляем правило ПЕРЕД правилами блокировки RKN
-        # Сначала находим позицию первого правила RKN
-        result = run_command([
-            "iptables", "-L", "FORWARD", "-n", "--line-numbers"
-        ])
+        # Находим позицию правила блокировки
+        result = run_command(["iptables", "-L", "OUTPUT", "-n", "--line-numbers"])
         
         rkn_line = None
         for line in result.stdout.split('\n'):
@@ -187,21 +184,19 @@ def ensure_whitelist() -> bool:
                 break
         
         if rkn_line:
-            # Вставляем whitelist перед первым правилом RKN
             run_command([
-                "iptables", "-I", "FORWARD", rkn_line,
+                "iptables", "-I", "OUTPUT", rkn_line,
                 "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
                 "-j", "ACCEPT"
             ])
         else:
-            # Если нет правил RKN, добавляем в начало
             run_command([
-                "iptables", "-I", "FORWARD", "1",
+                "iptables", "-I", "OUTPUT", "1",
                 "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
                 "-j", "ACCEPT"
             ])
         
-        logger.info("Whitelist rule added to FORWARD chain (before RKN rules)")
+        logger.info("Whitelist rule added to OUTPUT chain (before RKN rules)")
     
     return True
 
@@ -260,7 +255,7 @@ def ensure_iptables_rule() -> bool:
 
 
 def remove_iptables_rule() -> bool:
-    """Удалить правила iptables из OUTPUT и FORWARD."""
+    """Удалить правила iptables из OUTPUT."""
     # Удаляем правило OUTPUT с conntrack
     result = run_command([
         "iptables", "-D", "OUTPUT",
@@ -271,28 +266,15 @@ def remove_iptables_rule() -> bool:
     if result.returncode == 0:
         logger.info("Правило iptables OUTPUT удалено")
     else:
-        logger.warning(f"Правило OUTPUT не найдено: {result.stderr}")
-
-    # Удаляем правила FORWARD для портов Xray
-    for port in XRAY_PORTS:
-        result = run_command([
-            "iptables", "-D", "FORWARD",
-            "-p", "tcp", "--sport", str(port),
-            "-m", "set", "--match-set", IPSET_NAME, "dst",
-            "-j", "DROP"
-        ])
-        if result.returncode == 0:
-            logger.info(f"Правило FORWARD для порта {port} удалено")
-        else:
-            logger.debug(f"Правило FORWARD для порта {port} не найдено")
+        logger.debug(f"Правило OUTPUT не найдено: {result.stderr}")
     
-    # Удаляем whitelist правило
+    # Удаляем whitelist правило из OUTPUT
     run_command([
-        "iptables", "-D", "FORWARD",
+        "iptables", "-D", "OUTPUT",
         "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
         "-j", "ACCEPT"
     ])
-    logger.info("Whitelist rule removed from FORWARD")
+    logger.debug("Whitelist rule removed from OUTPUT")
 
     return True
 
