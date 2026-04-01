@@ -887,12 +887,17 @@
         }
         
         const d = data.data || data;
-        // Статус определяется по enabled + ipset_exists + iptables_exists
-        const enabled = (d.enabled === true) && d.ipset_exists && d.iptables_exists;
+        // Статус определяется по blocked_count > 0 И (ipset_exists ИЛИ enabled)
+        const hasBlockedIPs = (d.blocked_count || 0) > 0;
+        const ipsetExists = d.ipset_exists === true;
+        const isEnabled = d.enabled === true;
+        
+        // Если есть заблокированные IP и ipset существует - считаем активным
+        const active = hasBlockedIPs && ipsetExists;
         
         const statusHtml = `
-          <div class="alert ${enabled ? 'alert-success' : 'alert-secondary'}">
-            <strong>Статус:</strong> ${enabled ? '✅ Активно' : '❌ Отключено'}<br>
+          <div class="alert ${active ? 'alert-success' : 'alert-secondary'}">
+            <strong>Статус:</strong> ${active ? '✅ Активно' : '❌ Отключено'}<br>
             ${d.blocked_count !== undefined ? `<strong>Заблокировано IP:</strong> ${d.blocked_count}<br>` : ''}
             ${d.last_update ? `<strong>Последнее обновление:</strong> ${new Date(d.last_update).toLocaleString()}` : ''}
           </div>

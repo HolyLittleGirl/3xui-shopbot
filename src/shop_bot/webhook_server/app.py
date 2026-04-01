@@ -1736,76 +1736,38 @@ def create_webhook_app(bot_controller_instance):
             return 'Error', 500
 
     # ==================== RKN Blocker Routes ====================
-    # Управление RKN через subprocess вызов команд на хосте
-    
-    def _run_rkn_command(action: str) -> dict:
-        """
-        Выполнить команду RKN блокировщика.
-        Вызываем напрямую блок-скрипт на хосте (смонтирован в контейнер).
-        """
-        import subprocess
-        
-        try:
-            # Выполняем блок-скрипт через смонтированный volume
-            if action == 'status':
-                cmd = ['python3', '/host-rkn-blocker/block_ips.py', 'status', '--json']
-            elif action == 'enable':
-                cmd = ['python3', '/host-rkn-blocker/block_ips.py', 'enable', '--json']
-            elif action == 'disable':
-                cmd = ['python3', '/host-rkn-blocker/block_ips.py', 'disable', '--json']
-            elif action == 'update':
-                cmd = ['python3', '/host-rkn-blocker/block_ips.py', 'update', '--json']
-            else:
-                return {"success": False, "error": f"Unknown action: {action}"}
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            
-            if result.returncode == 0:
-                import json
-                output = json.loads(result.stdout.strip())
-                return {"success": True, "data": output, "action": action}
-            else:
-                logger.error(f"RKN command failed: {result.stderr}")
-                return {"success": False, "error": result.stderr or "Command failed", "action": action}
-        
-        except subprocess.TimeoutExpired:
-            logger.error("RKN command timeout")
-            return {"success": False, "error": "Timeout", "action": action}
-        except Exception as e:
-            logger.error(f"RKN command error: {e}")
-            return {"success": False, "error": str(e), "action": action}
+    # Управление RKN через HTTP API на хосте
     
     @flask_app.route('/api/rkn/status', methods=['GET'])
     def rkn_get_status():
         """Получить статус RKN блокировщика."""
-        result = _run_rkn_command('status')
-        # Парсим вывод статуса
-        if result.get('success'):
-            output = result.get('output', '')
-            # Простой парсинг вывода rkn-block status
-            status_info = {
-                'enabled': '✅ Да' in output or 'enabled: ✅' in output,
-                'raw_output': output
-            }
-            result.update(status_info)
-        return jsonify(result)
+        from shop_bot.modules import rkn_client
+        client = rkn_client.get_client()
+        status = client.get_status()
+        return jsonify(status)
 
     @flask_app.route('/api/rkn/enable', methods=['POST'])
     def rkn_enable():
         """Включить RKN блокировку."""
-        result = _run_rkn_command('enable')
+        from shop_bot.modules import rkn_client
+        client = rkn_client.get_client()
+        result = client.enable()
         return jsonify(result)
 
     @flask_app.route('/api/rkn/disable', methods=['POST'])
     def rkn_disable():
         """Выключить RKN блокировку."""
-        result = _run_rkn_command('disable')
+        from shop_bot.modules import rkn_client
+        client = rkn_client.get_client()
+        result = client.disable()
         return jsonify(result)
 
     @flask_app.route('/api/rkn/update', methods=['POST'])
     def rkn_update():
         """Обновить RKN списки блокировки."""
-        result = _run_rkn_command('update')
+        from shop_bot.modules import rkn_client
+        client = rkn_client.get_client()
+        result = client.update()
         return jsonify(result)
 
     return flask_app

@@ -2005,8 +2005,11 @@ def get_admin_router() -> Router:
         except Exception as e:
             status = {"enabled": False, "error": str(e)}
         
-        enabled = status.get("enabled", False)
+        # Определяем статус по blocked_count и ipset_exists
         blocked_count = status.get("blocked_count", 0)
+        ipset_exists = status.get("ipset_exists", False)
+        enabled = blocked_count > 0 and ipset_exists
+        
         last_update = status.get("last_update")
         
         if last_update:

@@ -327,8 +327,11 @@ def get_status() -> dict:
                     except ValueError:
                         pass
     
+    # enabled = true если blocked_count > 0 и ipset существует и iptables правило есть
+    enabled = blocked_count > 0 and ipset_exists and iptables_exists
+    
     return {
-        "enabled": state.get("enabled", False) and ipset_exists and iptables_exists,
+        "enabled": enabled,
         "blocked_count": blocked_count,
         "last_update": state.get("last_update"),
         "ipset_exists": ipset_exists,

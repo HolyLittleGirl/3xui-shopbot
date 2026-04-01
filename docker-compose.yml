@@ -8,13 +8,7 @@ services:
       - .:/app/project
       - shopbot-db:/app/project/data
       - ./ssh-keys:/root/.ssh
-      # RKN блокировщик (только для чтения)
-      - /opt/rkn-blocker:/host-rkn-blocker:ro
-      - /etc/rkn-blocker.env:/etc/rkn-blocker.env:ro
     container_name: 3xui-shopbot
-    cap_add:
-      - NET_ADMIN      # Для iptables/ipset
-      - NET_RAW        # Для сетевых операций
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
