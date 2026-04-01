@@ -414,19 +414,19 @@ def enable_blocking() -> dict:
     
     logger.info(f"Блокировка включена. Заблокировано {len(ips)} IP адресов")
     
-    # Обновляем конфиг 3x-ui
+    # Обновляем конфиг 3x-ui - добавляем доменную блокировку
     try:
         import subprocess
         import time
         time.sleep(1)  # Ждём пока ipset полностью обновится
-
+        
         result = subprocess.run(
-            ['python3', '/opt/rkn-blocker/update-3xui-config.py', 'enable'],
-            capture_output=True, text=True, timeout=60
+            ['python3', '/opt/rkn-blocker/update-3xui-rkn-domains.py', 'enable'],
+            capture_output=True, text=True, timeout=120
         )
-        logger.info(f"3x-ui config updated: {result.stdout.strip()}")
+        logger.info(f"3x-ui domain rules updated: {result.stdout.strip()}")
     except Exception as e:
-        logger.warning(f"Failed to update 3x-ui config: {e}")
+        logger.warning(f"Failed to update 3x-ui domain rules: {e}")
     
     return {
         "success": True,
@@ -438,33 +438,33 @@ def enable_blocking() -> dict:
 def disable_blocking() -> dict:
     """Выключить блокировку."""
     logger.info("=== Выключение блокировки РКН ===")
-
+    
     state = load_state()
-
+    
     # Удаляем правило iptables
     remove_iptables_rule()
-
+    
     # Удаляем ipset
     destroy_ipset()
-
-    # Удаляем правила из 3x-ui конфига
+    
+    # Удаляем доменные правила из 3x-ui конфига
     try:
         import subprocess
         result = subprocess.run(
-            ['python3', '/opt/rkn-blocker/update-3xui-config.py', 'disable'],
+            ['python3', '/opt/rkn-blocker/update-3xui-rkn-domains.py', 'disable'],
             capture_output=True, text=True, timeout=120
         )
-        logger.info(f"3x-ui config updated: {result.stdout.strip()}")
+        logger.info(f"3x-ui domain rules updated: {result.stdout.strip()}")
         # Ждём пока x-ui перезагрузится
         import time
         time.sleep(5)
     except Exception as e:
-        logger.warning(f"Failed to update 3x-ui config: {e}")
-
+        logger.warning(f"Failed to update 3x-ui domain rules: {e}")
+    
     # Сохраняем состояние (но сохраняем last_update и blocked_count для истории)
     state["enabled"] = False
     save_state(state)
-
+    
     logger.info("Блокировка выключена")
     return {"success": True}
 
