@@ -203,6 +203,11 @@ def initialize_db():
                 # Legal pages (internal URLs by default)
                 "terms_url": "/terms",
                 "privacy_url": "/privacy",
+                # RKN Blocker
+                "rkn_enabled": "false",
+                "rkn_api_url": "http://127.0.0.1:8765",
+                "rkn_api_token": None,
+                "rkn_auto_update": "true",
             }
             run_migration()
             for key, value in default_settings.items():

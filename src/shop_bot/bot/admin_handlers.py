@@ -1985,4 +1985,148 @@ def get_admin_router() -> Router:
         except Exception as e:
             await message.answer(f"Ошибка: {e}")
 
+    # ==================== RKN Blocker Admin Handlers ====================
+    
+    @admin_router.callback_query(F.data == "admin_rkn_menu")
+    async def admin_rkn_menu(callback: types.CallbackQuery):
+        """Меню управления RKN блокировкой."""
+        if not is_admin(callback.from_user.id):
+            await callback.answer("У вас нет прав.", show_alert=True)
+            return
+        
+        await callback.answer()
+        
+        from shop_bot.modules import rkn_client
+        
+        # Получаем статус
+        try:
+            client = rkn_client.get_client()
+            status = client.get_status()
+        except Exception as e:
+            status = {"enabled": False, "error": str(e)}
+        
+        enabled = status.get("enabled", False)
+        blocked_count = status.get("blocked_count", 0)
+        last_update = status.get("last_update")
+        
+        if last_update:
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(last_update)
+                last_update_str = dt.strftime("%d.%m.%Y %H:%M")
+            except Exception:
+                last_update_str = last_update
+        else:
+            last_update_str = "—"
+        
+        text = (
+            "🛡️ <b>Управление РКН блокировкой</b>\n\n"
+            f"Статус: {'✅ ВКЛЮЧЕНО' if enabled else '❌ ОТКЛЮЧЕНО'}\n"
+            f"Заблокировано IP: {blocked_count}\n"
+            f"Последнее обновление: {last_update_str}\n\n"
+            "Блокировка происходит на уровне сервера через iptables/ipset.\n"
+            "Обновление списков каждые 30 минут."
+        )
+        
+        builder = InlineKeyboardBuilder()
+        
+        if enabled:
+            builder.button(text="⏹️ Отключить", callback_data="admin_rkn_toggle")
+        else:
+            builder.button(text="✅ Включить", callback_data="admin_rkn_toggle")
+        
+        builder.button(text="⬇️ Обновить списки", callback_data="admin_rkn_update")
+        builder.button(text="⚙️ Настройки", callback_data="admin_rkn_settings")
+        builder.button(text="⬅️ В админ-меню", callback_data="admin_menu")
+        
+        builder.adjust(2, 2, 1)
+        
+        await callback.message.edit_text(text, reply_markup=builder.as_markup())
+    
+    @admin_router.callback_query(F.data == "admin_rkn_toggle")
+    async def admin_rkn_toggle(callback: types.CallbackQuery):
+        """Переключить состояние RKN блокировки."""
+        if not is_admin(callback.from_user.id):
+            await callback.answer("У вас нет прав.", show_alert=True)
+            return
+        
+        await callback.answer()
+        
+        from shop_bot.modules import rkn_client
+        
+        try:
+            client = rkn_client.get_client()
+            result = client.toggle()
+            
+            if result.get("success"):
+                action = result.get("action", "changed")
+                await callback.message.answer(
+                    f"✅ Блокировка {'включена' if action == 'enabled' else 'выключена'}"
+                )
+                # Обновляем меню
+                await admin_rkn_menu(callback)
+            else:
+                await callback.message.answer(f"❌ Ошибка: {result.get('error', 'Неизвестная ошибка')}")
+        
+        except Exception as e:
+            await callback.message.answer(f"❌ Ошибка: {e}")
+    
+    @admin_router.callback_query(F.data == "admin_rkn_update")
+    async def admin_rkn_update(callback: types.CallbackQuery):
+        """Обновить списки RKN блокировки."""
+        if not is_admin(callback.from_user.id):
+            await callback.answer("У вас нет прав.", show_alert=True)
+            return
+        
+        await callback.answer()
+        
+        from shop_bot.modules import rkn_client
+        
+        wait_message = await callback.message.answer("⏳ Обновление списков блокировки...")
+        
+        try:
+            client = rkn_client.get_client()
+            result = client.update()
+            
+            if result.get("success"):
+                blocked_count = result.get("blocked_count", 0)
+                await wait_message.edit_text(f"✅ Списки обновлены! Заблокировано IP: {blocked_count}")
+                # Возвращаем меню через 2 секунды
+                await asyncio.sleep(2)
+                await admin_rkn_menu(callback)
+            else:
+                await wait_message.edit_text(f"❌ Ошибка обновления: {result.get('error', 'Неизвестная ошибка')}")
+        
+        except Exception as e:
+            await wait_message.edit_text(f"❌ Ошибка: {e}")
+    
+    @admin_router.callback_query(F.data == "admin_rkn_settings")
+    async def admin_rkn_settings(callback: types.CallbackQuery):
+        """Показать настройки RKN."""
+        if not is_admin(callback.from_user.id):
+            await callback.answer("У вас нет прав.", show_alert=True)
+            return
+        
+        await callback.answer()
+        
+        from shop_bot.data_manager.database import get_setting
+        
+        api_url = get_setting("rkn_api_url") or "http://127.0.0.1:8765"
+        api_token = get_setting("rkn_api_token")
+        token_masked = (api_token[:4] + "..." + api_token[-4:]) if api_token and len(api_token) > 8 else "Не установлен"
+        
+        text = (
+            "⚙️ <b>Настройки RKN блокировщика</b>\n\n"
+            f"<b>API URL:</b> <code>{api_url}</code>\n"
+            f"<b>API Token:</b> <code>{token_masked}</code>\n\n"
+            "Для изменения настроек используйте веб-панель:\n"
+            "Настройки → Панель → РКН Блокировка"
+        )
+        
+        builder = InlineKeyboardBuilder()
+        builder.button(text="⬅️ Назад", callback_data="admin_rkn_menu")
+        builder.adjust(1)
+        
+        await callback.message.edit_text(text, reply_markup=builder.as_markup())
+
     return admin_router

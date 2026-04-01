@@ -37,6 +37,7 @@
       <li class="nav-item"><a class="nav-link" href="#referrals">Рефералы</a></li>
       <li class="nav-item"><a class="nav-link" href="#trial">Триал</a></li>
       <li class="nav-item"><a class="nav-link" href="#content">Контент</a></li>
+      <li class="nav-item"><a class="nav-link" href="#rkn" style="color: #ffc107;">🛡️ РКН</a></li>
     </ul>
   </div>
   </div>
@@ -714,7 +715,97 @@
 			<button type="submit" class="btn btn-primary">
 				Сохранить все настройки
 			</button>
-		        </form>
+		</form>
+
+		<!-- RKN Blocker Section -->
+		<section class="settings-section" id="rkn">
+			<h2>🛡️ Блокировка РКН</h2>
+			<div class="card">
+				<div class="card-body">
+					<div class="alert alert-info" role="alert">
+						<strong>📋 Информация:</strong><br>
+						Блокировка запрещённых ресурсов РФ происходит на уровне сервера через iptables/ipset.
+						Для работы функции необходимо установить RKN блокировщик командой:
+						<code>sudo bash /app/project/rkn-blocker/install_rkn.sh</code>
+					</div>
+
+					<div class="mb-3">
+						<div class="form-check">
+							<input class="form-check-input" type="checkbox"
+								   id="rkn_enabled" name="rkn_enabled" value="true"
+								   {% if settings.rkn_enabled == 'true' %}checked{% endif %}>
+							<label class="form-check-label" for="rkn_enabled">
+								<strong>Включить блокировку запрещённых ресурсов</strong>
+							</label>
+						</div>
+						<div class="form-text">
+							Автоматическая блокировка доступа к ресурсам, запрещённым в РФ.
+							Обновление списков каждые 30 минут.
+						</div>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label" for="rkn_api_url">RKN API URL:</label>
+						<input class="form-control pill" type="text" id="rkn_api_url" name="rkn_api_url"
+							   value="{{ settings.rkn_api_url or 'http://127.0.0.1:8765' }}"
+							   placeholder="http://127.0.0.1:8765" />
+						<div class="form-text">URL локального API сервера блокировщика</div>
+					</div>
+
+					<div class="mb-3">
+						<label class="form-label" for="rkn_api_token">RKN API Token:</label>
+						<input class="form-control pill" type="text" id="rkn_api_token" name="rkn_api_token"
+							   value="{{ settings.rkn_api_token or '' }}"
+							   placeholder="Введите токен из /etc/rkn-blocker.env" />
+						<div class="form-text">
+							Токен авторизации API. Получите его после установки блокировщика.
+						</div>
+					</div>
+
+					<div class="mb-3">
+						<div class="form-check">
+							<input class="form-check-input" type="checkbox"
+								   id="rkn_auto_update" name="rkn_auto_update" value="true"
+								   {% if settings.rkn_auto_update == 'true' %}checked{% endif %}>
+							<label class="form-check-label" for="rkn_auto_update">
+								Автоматическое обновление списков
+							</label>
+						</div>
+						<div class="form-text">
+							При включении списки будут обновляться автоматически каждые 30 минут.
+						</div>
+					</div>
+
+					<hr class="my-4">
+
+					<h5>Статус блокировщика</h5>
+					<div id="rkn-status-container" class="mt-3">
+						<button type="button" class="btn btn-outline-primary btn-sm" onclick="loadRKNStatus()">
+							🔄 Обновить статус
+						</button>
+						<div id="rkn-status-content" class="mt-2"></div>
+					</div>
+
+					<hr class="my-4">
+
+					<h5>Действия</h5>
+					<div class="mt-3">
+						<button type="button" class="btn btn-success btn-sm me-2" onclick="rknAction('enable')">
+							✅ Включить блокировку
+						</button>
+						<button type="button" class="btn btn-warning btn-sm me-2" onclick="rknAction('disable')">
+							⏹️ Выключить блокировку
+						</button>
+						<button type="button" class="btn btn-info btn-sm" onclick="rknAction('update')">
+							⬇️ Обновить списки сейчас
+						</button>
+					</div>
+				</div>
+			</div>
+		</section>
+		<!-- End RKN Blocker Section -->
+
+        </form>
     </div>
 </div>
 
@@ -777,6 +868,95 @@
         setTimeout(() => { panel.classList.remove('show'); }, 220);
       });
       btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // RKN Status and Actions
+  function loadRKNStatus() {
+    const container = document.getElementById('rkn-status-content');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"></div> Загрузка...';
+    
+    fetch('/api/rkn/status')
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+          return;
+        }
+        
+        const statusHtml = `
+          <div class="alert ${data.enabled ? 'alert-success' : 'alert-secondary'}">
+            <strong>Статус:</strong> ${data.enabled ? '✅ Активно' : '❌ Отключено'}<br>
+            ${data.blocked_count !== undefined ? `<strong>Заблокировано IP:</strong> ${data.blocked_count}<br>` : ''}
+            ${data.last_update ? `<strong>Последнее обновление:</strong> ${new Date(data.last_update).toLocaleString()}` : ''}
+          </div>
+        `;
+        container.innerHTML = statusHtml;
+      })
+      .catch(err => {
+        container.innerHTML = `<div class="alert alert-danger">Ошибка: ${err.message}</div>`;
+      });
+  }
+
+  function rknAction(action) {
+    const token = document.getElementById('rkn_api_token')?.value;
+    if (!token) {
+      alert('⚠️ Сначала укажите RKN API Token в настройках выше');
+      document.getElementById('rkn_api_token')?.focus();
+      return;
+    }
+    
+    const actions = {
+      'enable': 'Включить блокировку?',
+      'disable': 'Выключить блокировку?',
+      'update': 'Обновить списки блокировки?'
+    };
+    
+    if (!confirm(`🛡️ ${actions[action]}`)) return;
+    
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Выполнение...';
+    
+    fetch('/api/rkn/' + action, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token: token})
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        alert('✅ ' + (action === 'enable' ? 'Блокировка включена' : action === 'disable' ? 'Блокировка выключена' : 'Списки обновлены'));
+        loadRKNStatus();
+      } else {
+        alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+      }
+    })
+    .catch(err => {
+      alert('❌ Ошибка: ' + err.message);
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    });
+  }
+
+  // Auto-load status on page load if RKN section exists
+  document.addEventListener('DOMContentLoaded', function() {
+    const rknSection = document.getElementById('rkn');
+    if (rknSection) {
+      // Load status when navigating to RKN section
+      const rknLink = document.querySelector('a[href="#rkn"]');
+      if (rknLink) {
+        rknLink.addEventListener('click', function(e) {
+          e.preventDefault();
+          loadRKNStatus();
+          window.location.hash = '#rkn';
+        });
+      }
     }
   });
 </script>

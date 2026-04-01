@@ -1,0 +1,17 @@
+[Unit]
+Description=RKN Blocklist Auto-Update Timer
+Documentation=https://github.com/HolyLittleGirl/3xui-shopbot/tree/feature/rkn-module/rkn-blocker
+Requires=rkn-blocker.service
+After=network.target
+
+[Timer]
+# Первый запуск через 5 минут после старта
+OnBootSec=5min
+# Затем каждые 30 минут
+OnUnitActiveSec=30min
+# Сохранять состояние между перезагрузками
+Persistent=true
+Unit=rkn-blocker.service
+
+[Install]
+WantedBy=timers.target

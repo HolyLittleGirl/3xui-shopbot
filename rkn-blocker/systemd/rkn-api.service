@@ -1,0 +1,25 @@
+[Unit]
+Description=RKN Blocker HTTP API Server
+Documentation=https://github.com/HolyLittleGirl/3xui-shopbot/tree/feature/rkn-module/rkn-blocker
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/rkn-blocker/venv/bin/python3 /opt/rkn-blocker/rkn_api.py --port 8765 --host 127.0.0.1
+WorkingDirectory=/opt/rkn-blocker
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=10
+
+# Environment
+Environment=FLASK_ENV=production
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/log/rkn-blocker /opt/rkn-blocker
+
+[Install]
+WantedBy=multi-user.target
