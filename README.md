@@ -97,7 +97,6 @@ URL: https://your-domain.com/login
 | Система | Что нужно |
 |---------|-----------|
 | YooKassa | Shop ID + Secret Key |
-| YooMoney | Wallet ID + API Key |
 | CryptoBot | API токен из @CryptoBot |
 | Heleket | Merchant ID + API Key |
 | TON Connect | Кошелек + TON API Key |
@@ -138,81 +137,10 @@ URL: https://your-domain.com/login
 
 ---
 
-## 🔄 Обновление
-
-```bash
-cd /root/3xui-shopbot
-git pull origin main
-sudo docker-compose restart
-```
-
----
-
-## 💾 Бэкап и восстановление
-
-### Бэкап через панель
-**Настройки → Настройки панели → Скачать бэкап БД**
-
-### Ручной бэкап
-```bash
-docker cp 3xui-shopbot:/app/project/data/users.db ./users.db.backup
-```
-
-### Восстановление
-```bash
-docker-compose down
-docker cp ./users.db.backup 3xui-shopbot:/app/project/data/users.db
-docker-compose up -d
-```
-
-> ⚠️ **Не удаляйте Docker volume `shopbot-db`!**
-
----
-
-## 📁 Структура проекта
-
-```
-3xui-shopbot/
-├── src/shop_bot/
-│   ├── bot/                 # Обработчики бота
-│   ├── support_bot/         # Бот поддержки
-│   ├── data_manager/        # БД, scheduler, speedtest, backup
-│   ├── webhook_server/      # Flask (веб-панель, вебхуки)
-│   ├── modules/             # 3x-ui API
-│   └── bot_controller.py    # Контроллер запуска бота
-├── docker-compose.yml
-├── Dockerfile
-├── install.sh
-├── README.md                # Этот файл
-└── DEVELOPER.md             # Документация разработчика
-```
-
----
-
 ## 📞 Поддержка
 
 - Через веб-панель: раздел **Поддержка**
 - GitHub Issues: [создать issue](https://github.com/HolyLittleGirl/3xui-shopbot/issues)
-
----
-
-## 📝 Лицензия
-
-MIT License — см. [LICENSE](LICENSE)
-
----
-
-## 🗺️ Roadmap
-
-### В разработке
-- [ ] Интеграция с реестром запрещённых ресурсов (РКН)
-- [ ] Ручное управление блокировками (вкл/выкл)
-- [ ] Статус блокировок в веб-панели
-
-### Запланировано
-- [ ] Уведомления об обновлении списков блокировок
-- [ ] Экспорт логов блокировок
-- [ ] Расширенная статистика по платежам
 
 ---
 
