@@ -21,14 +21,12 @@ def get_blocked_ips():
             in_members = True
             continue
         if in_members and line.strip():
-            # Формат: "1.2.3.0/24 timeout 0" или "1.2.3.4 timeout 0"
             ip = line.split()[0]
             if ip and not ip.startswith('#'):
                 ips.append(ip)
     return ips
 
 def main():
-    # Получаем заблокированные IP
     blocked_ips = get_blocked_ips()
     if not blocked_ips:
         print("No blocked IPs found", file=sys.stderr)
@@ -36,7 +34,6 @@ def main():
     
     print(f"Found {len(blocked_ips)} blocked IPs")
     
-    # Читаем конфиг
     try:
         with open(XRAY_CONFIG, 'r') as f:
             config = json.load(f)
@@ -44,31 +41,47 @@ def main():
         print(f"Error reading config: {e}", file=sys.stderr)
         return 1
     
-    # Проверяем есть ли уже правило RKN
     routing = config.get('routing', {})
     rules = routing.get('rules', [])
     
+    # Ищем НАШЕ правило RKN (не geoip:private!)
+    rkn_rule_index = None
     for i, rule in enumerate(rules):
-        if rule.get('outboundTag') == 'rkn-blocked':
-            print("RKN rule already exists, updating...", file=sys.stderr)
-            # Обновляем существующее правило
-            rule['ip'] = blocked_ips[:500]  # Лимит 500 IP
-            break
+        if rule.get('outboundTag') == 'blocked':
+            ip_list = rule.get('ip', [])
+            # Проверяем это не geoip правило
+            if ip_list and not ip_list[0].startswith('geoip:'):
+                rkn_rule_index = i
+                print(f"Found existing RKN rule at index {i}", file=sys.stderr)
+                break
+    
+    if rkn_rule_index is not None:
+        # Обновляем существующее правило
+        rules[rkn_rule_index]['ip'] = blocked_ips[:500]
     else:
-        # Добавляем новое правило ПЕРЕД остальными
+        # Создаём новое правило ПЕРЕД outbound правилами (но ПОСЛЕ domain/ip правил)
+        # outbound правила не имеют 'ip' или 'domain' ключей
+        insert_index = len(rules)  # По умолчанию в конец
+        
+        # Находим ПЕРВОЕ outbound правило (без ip и domain)
+        for i, rule in enumerate(rules):
+            if 'ip' not in rule and 'domain' not in rule:
+                insert_index = i
+                print(f"Found first outbound rule at index {i}", file=sys.stderr)
+                break
+        
         rkn_rule = {
             'type': 'field',
             'ip': blocked_ips[:500],
             'network': 'TCP,UDP',
             'outboundTag': 'blocked'
         }
-        rules.insert(0, rkn_rule)
-        print("RKN rule added")
+        rules.insert(insert_index, rkn_rule)
+        print(f"Added new RKN rule at index {insert_index}", file=sys.stderr)
     
     routing['rules'] = rules
     config['routing'] = routing
     
-    # Сохраняем конфиг
     try:
         with open(XRAY_CONFIG + '.bak', 'w') as f:
             json.dump(config, f, indent=2)
@@ -78,7 +91,6 @@ def main():
         
         print("Config saved")
         
-        # Перезагружаем x-ui
         subprocess.run(['systemctl', 'restart', 'x-ui'], check=True)
         print("Xray restarted")
         
