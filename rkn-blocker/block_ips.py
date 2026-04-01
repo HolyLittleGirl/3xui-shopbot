@@ -98,8 +98,8 @@ def ensure_ipset() -> bool:
     return True
 
 
-# Xray VLESS порты для блокировки
-XRAY_PORTS = [5443, 6443, 7443, 8443]
+# Xray VLESS порты (больше не используются - используем только OUTPUT chain)
+# XRAY_PORTS = [5443, 6443, 7443, 8443]
 
 # Whitelist для аутбаундов (заполняется автоматически)
 WHITELIST_IPSET = "rkn_whitelist"
@@ -202,7 +202,12 @@ def ensure_whitelist() -> bool:
 
 
 def ensure_iptables_rule() -> bool:
-    """Добавить правило iptables если отсутствует."""
+    """Добавить правило iptables если отсутствует.
+    
+    Используем ТОЛЬКО OUTPUT chain с conntrack NEW.
+    FORWARD chain НЕ используется - это ломает VLESS проксирование.
+    Whitelist добавляется отдельно в ensure_whitelist().
+    """
     # OUTPUT chain - для трафика самого сервера
     # Используем conntrack NEW чтобы не блокировать ESTABLISHED соединения
     result = run_command([
@@ -226,30 +231,6 @@ def ensure_iptables_rule() -> bool:
             return False
     else:
         logger.info("Правило iptables OUTPUT уже существует")
-
-    # FORWARD chain - для трафика пользователей VLESS (порты Xray)
-    for port in XRAY_PORTS:
-        result = run_command([
-            "iptables", "-C", "FORWARD",
-            "-p", "tcp", "--sport", str(port),
-            "-m", "set", "--match-set", IPSET_NAME, "dst",
-            "-j", "DROP"
-        ])
-        
-        if result.returncode != 0:
-            result = run_command([
-                "iptables", "-I", "FORWARD", "1",
-                "-p", "tcp", "--sport", str(port),
-                "-m", "set", "--match-set", IPSET_NAME, "dst",
-                "-j", "DROP"
-            ])
-            if result.returncode == 0:
-                logger.info(f"Правило iptables FORWARD для порта {port} добавлено успешно")
-            else:
-                logger.error(f"Не удалось добавить правило FORWARD для порта {port}: {result.stderr}")
-                return False
-        else:
-            logger.info(f"Правило iptables FORWARD для порта {port} уже существует")
 
     return True
 
