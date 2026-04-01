@@ -2005,10 +2005,13 @@ def get_admin_router() -> Router:
         except Exception as e:
             status = {"enabled": False, "error": str(e)}
         
-        # Определяем статус по blocked_count и ipset_exists
+        # Определяем статус по iptables_exists
         blocked_count = status.get("blocked_count", 0)
         ipset_exists = status.get("ipset_exists", False)
-        enabled = blocked_count > 0 and ipset_exists
+        iptables_exists = status.get("iptables_exists", False)
+        
+        # RKN включён только если есть и ipset и iptables правила
+        enabled = ipset_exists and iptables_exists and blocked_count > 0
         
         last_update = status.get("last_update")
         

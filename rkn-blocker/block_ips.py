@@ -254,29 +254,58 @@ def ensure_iptables_rule() -> bool:
 
 
 def remove_iptables_rule() -> bool:
-    """Удалить правила iptables из FORWARD и OUTPUT."""
-    # Удаляем правило FORWARD
-    result = run_command([
-        "iptables", "-D", "FORWARD",
-        "-m", "set", "--match-set", IPSET_NAME, "dst",
-        "-j", "DROP"
-    ])
-    if result.returncode == 0:
-        logger.info("Правило iptables FORWARD удалено")
-    else:
-        logger.debug(f"Правило FORWARD не найдено: {result.stderr}")
+    """Удалить ВСЕ правила iptables связанные с RKN."""
+    # Удаляем ВСЕ правила FORWARD с rkn_blocked
+    while True:
+        result = run_command([
+            "iptables", "-D", "FORWARD",
+            "-m", "set", "--match-set", IPSET_NAME, "dst",
+            "-j", "DROP"
+        ])
+        if result.returncode != 0:
+            break
+    logger.info("Правила iptables FORWARD удалены")
 
-    # Удаляем правило OUTPUT
-    result = run_command([
-        "iptables", "-D", "OUTPUT",
-        "-m", "set", "--match-set", IPSET_NAME, "dst",
-        "-j", "DROP"
-    ])
-    if result.returncode == 0:
-        logger.info("Правило iptables OUTPUT удалено")
-    else:
-        logger.debug(f"Правило OUTPUT не найдено: {result.stderr}")
-
+    # Удаляем ВСЕ правила OUTPUT с rkn_blocked (разные вариации)
+    while True:
+        result = run_command([
+            "iptables", "-D", "OUTPUT",
+            "-m", "set", "--match-set", IPSET_NAME, "dst",
+            "-j", "DROP"
+        ])
+        if result.returncode != 0:
+            break
+    
+    while True:
+        result = run_command([
+            "iptables", "-D", "OUTPUT",
+            "-m", "conntrack", "--ctstate", "NEW",
+            "-m", "set", "--match-set", IPSET_NAME, "dst",
+            "-j", "DROP"
+        ])
+        if result.returncode != 0:
+            break
+    
+    # Удаляем whitelist правила
+    while True:
+        result = run_command([
+            "iptables", "-D", "OUTPUT",
+            "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
+            "-j", "ACCEPT"
+        ])
+        if result.returncode != 0:
+            break
+    
+    while True:
+        result = run_command([
+            "iptables", "-D", "FORWARD",
+            "-m", "set", "--match-set", WHITELIST_IPSET, "dst",
+            "-j", "ACCEPT"
+        ])
+        if result.returncode != 0:
+            break
+    
+    logger.info("Все правила iptables OUTPUT удалены")
     return True
 
 
