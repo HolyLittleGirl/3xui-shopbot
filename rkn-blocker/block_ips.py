@@ -354,17 +354,6 @@ def enable_blocking() -> dict:
     # Добавляем whitelist
     ensure_whitelist()
     
-    # Обновляем правила Xray
-    try:
-        import subprocess
-        subprocess.run(
-            ['python3', '/opt/rkn-blocker/update-xray-rules.py'],
-            capture_output=True, text=True, timeout=30
-        )
-        logger.info("Xray routing rules updated")
-    except Exception as e:
-        logger.warning(f"Failed to update Xray rules: {e}")
-    
     # Сохраняем состояние
     state["enabled"] = True
     state["last_update"] = datetime.now().isoformat()
@@ -372,6 +361,20 @@ def enable_blocking() -> dict:
     save_state(state)
     
     logger.info(f"Блокировка включена. Заблокировано {len(ips)} IP адресов")
+    
+    # Обновляем правила Xray (ПОСЛЕ сохранения состояния)
+    try:
+        import subprocess
+        import time
+        time.sleep(1)  # Ждём пока ipset полностью обновится
+        result = subprocess.run(
+            ['python3', '/opt/rkn-blocker/update-xray-rules.py'],
+            capture_output=True, text=True, timeout=60
+        )
+        logger.info(f"Xray routing rules updated: {result.stdout.strip()}")
+    except Exception as e:
+        logger.warning(f"Failed to update Xray rules: {e}")
+    
     return {
         "success": True,
         "blocked_count": len(ips),
