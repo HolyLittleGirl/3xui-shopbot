@@ -433,6 +433,12 @@ def create_webhook_app(bot_controller_instance):
         except Exception:
             flash('Проверьте поля ключа.', 'danger')
             return redirect(request.referrer or url_for('admin_keys_page'))
+        
+        # Проверяем что хост выбран
+        if not host_name:
+            flash('Выберите хост.', 'danger')
+            return redirect(request.referrer or url_for('admin_keys_page'))
+        
         # Если UUID не указан — генерируем автоматически, как при выдаче ключа в боте
         if not xui_uuid:
             xui_uuid = str(uuid.uuid4())
@@ -495,6 +501,10 @@ def create_webhook_app(bot_controller_instance):
             expiry_ms = int(datetime.fromisoformat(expiry).timestamp() * 1000) if expiry else 0
         except Exception as e:
             return jsonify({"ok": False, "error": f"invalid input: {e}"}), 400
+        
+        # Проверяем что хост выбран
+        if not host_name:
+            return jsonify({"ok": False, "error": "host_name is required"}), 400
 
         if not xui_uuid:
             xui_uuid = str(uuid.uuid4())

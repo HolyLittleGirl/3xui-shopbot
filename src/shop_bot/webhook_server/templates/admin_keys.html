@@ -456,6 +456,7 @@
       if (!emailInput || !userInput || !hostSel) return;
       const userId = userInput.value && String(userInput.value).trim();
       const hostName = hostSel.value && String(hostSel.value).trim();
+      // Не генерируем email пока хост не выбран
       if (!userId || !hostName) return;
       try {
         const res = await fetch(`{{ url_for('generate_key_email_route') }}?user_id=${encodeURIComponent(userId)}&host_name=${encodeURIComponent(hostName)}`);
@@ -504,6 +505,12 @@
     }
 
     async function doSubmit(){
+      // Проверяем что хост выбран
+      const hostName = hostSel.value && String(hostSel.value).trim();
+      if (!hostName) {
+        window.showToast('warning', 'Выберите хост!');
+        return;
+      }
       // Обновим email перед сабмитом, чтобы гарантированно был сгенерирован под текущего пользователя
       await (async ()=>{ try { await maybeGenEmail(); } catch(_){} })();
       submitBtn.disabled = true; submitBtn.textContent = 'Создаю...';
