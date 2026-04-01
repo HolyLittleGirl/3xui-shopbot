@@ -439,6 +439,31 @@ def create_webhook_app(bot_controller_instance):
             flash('Выберите хост.', 'danger')
             return redirect(request.referrer or url_for('admin_keys_page'))
         
+        # Если email пустой — генерируем автоматически
+        if not key_email:
+            try:
+                user = get_user(user_id) or {}
+                raw_username = (user.get('username') or f'user{user_id}').lower()
+                import re
+                username_slug = re.sub(r"[^a-z0-9._-]", "_", raw_username).strip("_")[:16] or f"user{user_id}"
+                host_data = get_host(host_name)
+                inbound_id = host_data.get('host_inbound_id', '1') if host_data else '1'
+                base_local = f"{inbound_id}_{username_slug}"
+                candidate_local = base_local + "_1"
+                attempt = 1
+                while True:
+                    candidate_email = f"{candidate_local}@bot.local"
+                    if not get_key_by_email(candidate_email):
+                        break
+                    attempt += 1
+                    candidate_local = f"{inbound_id}_{username_slug}_{attempt}"
+                key_email = candidate_email
+                logger.info(f"Auto-generated email: {key_email}")
+            except Exception as e:
+                logger.error(f"Failed to generate email: {e}")
+                flash('Не удалось сгенерировать email.', 'danger')
+                return redirect(request.referrer or url_for('admin_keys_page'))
+        
         # Если UUID не указан — генерируем автоматически, как при выдаче ключа в боте
         if not xui_uuid:
             xui_uuid = str(uuid.uuid4())
@@ -505,6 +530,30 @@ def create_webhook_app(bot_controller_instance):
         # Проверяем что хост выбран
         if not host_name:
             return jsonify({"ok": False, "error": "host_name is required"}), 400
+        
+        # Если email пустой — генерируем автоматически
+        if not key_email:
+            try:
+                user = get_user(user_id) or {}
+                raw_username = (user.get('username') or f'user{user_id}').lower()
+                import re
+                username_slug = re.sub(r"[^a-z0-9._-]", "_", raw_username).strip("_")[:16] or f"user{user_id}"
+                host_data = get_host(host_name)
+                inbound_id = host_data.get('host_inbound_id', '1') if host_data else '1'
+                base_local = f"{inbound_id}_{username_slug}"
+                candidate_local = base_local + "_1"
+                attempt = 1
+                while True:
+                    candidate_email = f"{candidate_local}@bot.local"
+                    if not get_key_by_email(candidate_email):
+                        break
+                    attempt += 1
+                    candidate_local = f"{inbound_id}_{username_slug}_{attempt}"
+                key_email = candidate_email
+                logger.info(f"Auto-generated email (AJAX): {key_email}")
+            except Exception as e:
+                logger.error(f"Failed to generate email (AJAX): {e}")
+                return jsonify({"ok": False, "error": "failed to generate email"}), 500
 
         if not xui_uuid:
             xui_uuid = str(uuid.uuid4())
