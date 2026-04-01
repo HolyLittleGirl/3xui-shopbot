@@ -88,7 +88,7 @@ def main():
                 'type': 'field',
                 'domain': domains,
                 'network': 'TCP,UDP',
-                'outboundTag': 'direct',  # Прямое подключение через сервер в РФ
+                'outboundTag': 'blocked',  # Блокируем доступ (blackhole)
                 '_rkn_domains_blocker': True  # Маркер что это RKN правило
             }
             rules.insert(insert_index, rkn_rule)
