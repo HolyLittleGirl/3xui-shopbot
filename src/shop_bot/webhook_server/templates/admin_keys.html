@@ -453,11 +453,12 @@
 
     // Автогенерация email
     async function maybeGenEmail(){
-      if (!emailInput || !userInput) return;
+      if (!emailInput || !userInput || !hostSel) return;
       const userId = userInput.value && String(userInput.value).trim();
-      if (!userId) return;
+      const hostName = hostSel.value && String(hostSel.value).trim();
+      if (!userId || !hostName) return;
       try {
-        const res = await fetch(`{{ url_for('generate_key_email_route') }}?user_id=${encodeURIComponent(userId)}`);
+        const res = await fetch(`{{ url_for('generate_key_email_route') }}?user_id=${encodeURIComponent(userId)}&host_name=${encodeURIComponent(hostName)}`);
         const data = await res.json();
         if (data && data.ok && data.email) { emailInput.value = data.email; }
       } catch(_) {}
@@ -497,6 +498,8 @@
       hostSel.addEventListener('change', () => {
         updateInbound();
         loadPlansAndRestore();
+        // Перегенерируем email для нового хоста
+        (async ()=>{ await maybeGenEmail(); })();
       });
     }
 
