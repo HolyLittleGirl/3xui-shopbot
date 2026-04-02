@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-RKN Blocker - Блокировка запрещённых ресурсов РФ через 3x-ui routing
+RKN Blocker - Блокировка запрещённых ресурсов РФ через 3x-ui routing domain rules
 
-Использует IP списки из antifilter.download для создания правил в 3x-ui routing.
+Использует локальный файл доменов /opt/rkn-blocker/blocked_domains.json
 
 Usage:
     python3 rkn-blocker.py enable   - Включить блокировку
     python3 rkn-blocker.py disable  - Выключить блокировку
-    python3 rkn-blocker.py update   - Обновить списки
+    python3 rkn-blocker.py status   - Статус блокировки
 """
 import json
 import sqlite3
@@ -17,8 +17,7 @@ import time
 from datetime import datetime
 
 DB_PATH = '/etc/x-ui/x-ui.db'
-IP_LIST_URL = 'https://antifilter.download/list/allyouneed.lst'
-MAX_IPS_PER_RULE = 500  # Лимит Xray для IP правил
+DOMAINS_FILE = '/opt/rkn-blocker/blocked_domains.json'
 
 
 def log(message: str):
@@ -29,89 +28,36 @@ def run_command(cmd: list, timeout: int = 60) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
-def fetch_iplist() -> list:
-    """Скачать список IP"""
-    log(f"Fetching IP list from {IP_LIST_URL}...")
+def load_domains() -> list:
+    """Загрузить домены из локального файла"""
+    if not subprocess.run(['test', '-f', DOMAINS_FILE]).returncode == 0:
+        log(f"Domains file not found: {DOMAINS_FILE}")
+        return []
+    
     try:
-        result = run_command(['curl', '-sL', '--connect-timeout', '30', IP_LIST_URL], timeout=120)
-        if result.returncode != 0:
-            log(f"Failed to fetch: {result.stderr}")
-            return []
+        with open(DOMAINS_FILE, 'r') as f:
+            data = json.load(f)
         
-        ips = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
-        log(f"Fetched {len(ips)} IPs")
-        return ips
+        domains = []
+        for rule in data.get('rules', []):
+            for domain in rule.get('domain', []):
+                if not domain.startswith('regexp:') and domain not in domains:
+                    domains.append(domain)
+        
+        log(f"Loaded {len(domains)} domains from {DOMAINS_FILE}")
+        return domains
+    
     except Exception as e:
-        log(f"Error: {e}")
+        log(f"Error loading domains: {e}")
         return []
 
 
-def get_outbound_ips() -> list:
-    """Получить IP аутбаундов для whitelist"""
-    outbound_ips = []
-    
-    try:
-        # Читаем конфиг
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT value FROM settings WHERE key='xrayTemplateConfig'")
-        row = cursor.fetchone()
-        conn.close()
-        
-        if not row:
-            return []
-        
-        config = json.loads(row[0])
-        for outbound in config.get('outbounds', []):
-            if outbound.get('protocol') == 'vless':
-                address = outbound.get('settings', {}).get('address', '')
-                if address and not address.startswith('geo:'):
-                    # Проверяем не IP ли это
-                    import re
-                    if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', address):
-                        ip = address.split('/')[0]
-                        if ip not in outbound_ips:
-                            outbound_ips.append(ip)
-                    else:
-                        # Резолвим hostname
-                        try:
-                            result = run_command(['getent', 'hosts', address], timeout=5)
-                            if result.returncode == 0:
-                                for line in result.stdout.strip().split('\n'):
-                                    ip = line.split()[0]
-                                    if '.' in ip and ip not in outbound_ips:
-                                        outbound_ips.append(ip)
-                        except:
-                            pass
-    except Exception as e:
-        log(f"Error getting outbound IPs: {e}")
-    
-    log(f"Found {len(outbound_ips)} outbound IPs: {outbound_ips}")
-    return outbound_ips
-
-
-def split_ips(ips: list, max_per_rule: int = MAX_IPS_PER_RULE) -> list:
-    """Разбить IP на чанки"""
-    chunks = []
-    for i in range(0, len(ips), max_per_rule):
-        chunks.append(ips[i:i + max_per_rule])
-    return chunks
-
-
-def enable_blocking(ips: list) -> dict:
+def enable_blocking(domains: list) -> dict:
     """Включить блокировку через 3x-ui routing"""
-    log("=== Enabling RKN blocking via 3x-ui routing ===")
+    log("=== Enabling RKN domain blocking via 3x-ui routing ===")
     
-    # Получаем whitelist IP
-    whitelist_ips = get_outbound_ips()
-    
-    # Исключаем whitelist из блокировки
-    blocked_ips = [ip for ip in ips if ip not in whitelist_ips]
-    log(f"Blocked IPs: {len(blocked_ips)} (excluded {len(whitelist_ips)} whitelist IPs)")
-    
-    # Разбиваем на чанки
-    chunks = split_ips(blocked_ips)
-    log(f"Split into {len(chunks)} rules ({MAX_IPS_PER_RULE} IPs each)")
+    if not domains:
+        return {"success": False, "error": "No domains to block"}
     
     # Читаем конфиг
     conn = sqlite3.connect(DB_PATH)
@@ -136,9 +82,9 @@ def enable_blocking(ips: list) -> dict:
     new_rules = []
     old_rkn_count = 0
     for rule in rules:
-        ip_list = rule.get('ip', [])
-        # RKN правило: много IP и outboundTag: blocked
-        is_rkn = len(ip_list) > 100 and rule.get('outboundTag') == 'blocked'
+        domain_list = rule.get('domain', [])
+        # RKN правило: домены и outboundTag: blocked
+        is_rkn = len(domain_list) > 5 and rule.get('outboundTag') == 'blocked'
         if is_rkn:
             old_rkn_count += 1
             continue
@@ -154,17 +100,15 @@ def enable_blocking(ips: list) -> dict:
             break
     log(f"Insert at index {insert_index}")
     
-    # Добавляем правила
-    for i, chunk in enumerate(chunks):
-        rkn_rule = {
-            'type': 'field',
-            'ip': chunk,
-            'outboundTag': 'blocked'
-        }
-        rules.insert(insert_index + i, rkn_rule)
-        log(f"Added RKN IP rule {i+1}/{len(chunks)} with {len(chunk)} IPs")
-    
-    log(f"Total: {len(chunks)} RKN rules, {len(blocked_ips)} IPs blocked")
+    # Добавляем правило
+    rkn_rule = {
+        'type': 'field',
+        'domain': domains,
+        'network': 'TCP,UDP',
+        'outboundTag': 'blocked'
+    }
+    rules.insert(insert_index, rkn_rule)
+    log(f"Added RKN domain rule with {len(domains)} domains")
     
     routing['rules'] = rules
     config['routing'] = routing
@@ -196,7 +140,7 @@ def enable_blocking(ips: list) -> dict:
         log(f"Error restarting x-ui: {e}")
         return {"success": False, "error": str(e)}
     
-    return {"success": True, "blocked_count": len(blocked_ips)}
+    return {"success": True, "blocked_count": len(domains)}
 
 
 def disable_blocking() -> dict:
@@ -226,15 +170,15 @@ def disable_blocking() -> dict:
     new_rules = []
     removed_count = 0
     for rule in rules:
-        ip_list = rule.get('ip', [])
-        is_rkn = len(ip_list) > 100 and rule.get('outboundTag') == 'blocked'
+        domain_list = rule.get('domain', [])
+        is_rkn = len(domain_list) > 5 and rule.get('outboundTag') == 'blocked'
         if is_rkn:
             removed_count += 1
             continue
         new_rules.append(rule)
     rules = new_rules
     
-    log(f"Removed {removed_count} RKN IP rules")
+    log(f"Removed {removed_count} RKN domain rules")
     
     routing['rules'] = rules
     config['routing'] = routing
@@ -270,17 +214,6 @@ def disable_blocking() -> dict:
     return {"success": True}
 
 
-def update_blocklist() -> dict:
-    """Обновить списки (выключить + включить)"""
-    log("=== Updating blocklist ===")
-    disable_blocking()
-    time.sleep(5)
-    ips = fetch_iplist()
-    if not ips:
-        return {"success": False, "error": "Failed to fetch IP list"}
-    return enable_blocking(ips)
-
-
 def get_status() -> dict:
     """Получить статус"""
     try:
@@ -297,8 +230,8 @@ def get_status() -> dict:
         rules = config.get('routing', {}).get('rules', [])
         
         # Считаем RKN правила
-        rkn_rules = [r for r in rules if len(r.get('ip', [])) > 100 and r.get('outboundTag') == 'blocked']
-        blocked_count = sum(len(r.get('ip', [])) for r in rkn_rules)
+        rkn_rules = [r for r in rules if len(r.get('domain', [])) > 5 and r.get('outboundTag') == 'blocked']
+        blocked_count = sum(len(r.get('domain', [])) for r in rkn_rules)
         
         enabled = len(rkn_rules) > 0
         
@@ -313,25 +246,19 @@ def get_status() -> dict:
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: python3 rkn-blocker.py [enable|disable|update|status]")
+        print("Usage: python3 rkn-blocker.py [enable|disable|status]")
         sys.exit(1)
     
     action = sys.argv[1]
     
     if action == 'enable':
-        ips = fetch_iplist()
-        if not ips:
-            print(json.dumps({"success": False, "error": "Failed to fetch IP list"}))
+        domains = load_domains()
+        if not domains:
+            print(json.dumps({"success": False, "error": "No domains found"}))
             sys.exit(1)
-        result = enable_blocking(ips)
+        result = enable_blocking(domains)
     elif action == 'disable':
         result = disable_blocking()
-    elif action == 'update':
-        ips = fetch_iplist()
-        if not ips:
-            print(json.dumps({"success": False, "error": "Failed to fetch IP list"}))
-            sys.exit(1)
-        result = update_blocklist()
     elif action == 'status':
         result = get_status()
     else:
