@@ -24,7 +24,7 @@ def get_our_outbound_ips():
                     host = line.strip().split(': ')[1].strip()
                     outbound_hosts.append(host)
     except Exception as e:
-        print(f"Error loading outbounds: {e}", file=sys.stderr)
+        print(f"Error loading outbounds: {e}")
     
     # Резолвим хосты в IP
     outbound_ips = set()
@@ -39,16 +39,16 @@ def get_our_outbound_ips():
                 subnet = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.0/24"
                 outbound_ips.add(subnet)
         except Exception as e:
-            print(f"Failed to resolve {host}: {e}", file=sys.stderr)
+            print(f"Failed to resolve {host}: {e}")
     
     return outbound_ips
 
 def get_blocked_ips():
     """Получить IP из antifilter, исключая наши аутбаунды"""
     our_ips = get_our_outbound_ips()
-    print(f"Our outbound IPs/subnets to exclude: {len(our_ips)}", file=sys.stderr)
+    print(f"Our outbound IPs/subnets to exclude: {len(our_ips)}")
     for ip in list(our_ips)[:10]:
-        print(f"  Exclude: {ip}", file=sys.stderr)
+        print(f"  Exclude: {ip}")
     
     try:
         with open(IPS_FILE, 'r') as f:
@@ -76,17 +76,17 @@ def get_blocked_ips():
             if not is_ours:
                 blocked_ips.append(ip)
         
-        print(f"Excluded {excluded_count} IPs/subnets that match our outbounds", file=sys.stderr)
-        print(f"Total blocked IPs: {len(blocked_ips)}", file=sys.stderr)
+        print(f"Excluded {excluded_count} IPs/subnets that match our outbounds")
+        print(f"Total blocked IPs: {len(blocked_ips)}")
         
         return blocked_ips[:1000]  # Лимит 1000 IP (Xray имеет ограничения)
     except Exception as e:
-        print(f"Error loading IPs: {e}", file=sys.stderr)
+        print(f"Error loading IPs: {e}")
         return []
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python3 update-3xui-rkn-ips.py [enable|disable]", file=sys.stderr)
+        print("Usage: python3 update-3xui-rkn-ips.py [enable|disable]")
         return 1
     
     action = sys.argv[1]
@@ -99,13 +99,13 @@ def main():
     row = cursor.fetchone()
     
     if not row:
-        print("xrayTemplateConfig not found in database", file=sys.stderr)
+        print("xrayTemplateConfig not found in database")
         return 1
     
     try:
         config = json.loads(row[0])
     except Exception as e:
-        print(f"Error parsing config: {e}", file=sys.stderr)
+        print(f"Error parsing config: {e}")
         return 1
     
     routing = config.get('routing', {})
@@ -114,7 +114,7 @@ def main():
     if action == 'enable':
         ips = get_blocked_ips()
         if not ips:
-            print("No IPs found", file=sys.stderr)
+            print("No IPs found")
             return 1
         
         # Проверяем есть ли уже правило RKN
@@ -124,7 +124,7 @@ def main():
                 rkn_exists = True
                 # Обновляем правило
                 rule['ip'] = ips
-                print(f"Updated existing RKN IP rule with {len(ips)} IPs", file=sys.stderr)
+                print(f"Updated existing RKN IP rule with {len(ips)} IPs")
                 break
         
         if not rkn_exists:
@@ -142,7 +142,7 @@ def main():
                 '_rkn_ips_blocker': True  # Маркер что это RKN правило
             }
             rules.insert(insert_index, rkn_rule)
-            print(f"Added RKN IP rule at index {insert_index} with {len(ips)} IPs", file=sys.stderr)
+            print(f"Added RKN IP rule at index {insert_index} with {len(ips)} IPs")
     
     elif action == 'disable':
         # Удаляем RKN правила (с маркером '_rkn_ips_blocker')
@@ -152,7 +152,7 @@ def main():
             if not rule.get('_rkn_ips_blocker')
         ]
         removed_count = original_count - len(rules)
-        print(f"Removed {removed_count} RKN IP rules", file=sys.stderr)
+        print(f"Removed {removed_count} RKN IP rules")
     
     routing['rules'] = rules
     config['routing'] = routing
@@ -164,14 +164,14 @@ def main():
             (json.dumps(config),)
         )
         conn.commit()
-        print("Config saved to database", file=sys.stderr)
+        print("Config saved to database")
         
         # Перезагружаем x-ui
         subprocess.run(['systemctl', 'restart', 'x-ui'], check=True)
-        print("Xray restarted", file=sys.stderr)
+        print("Xray restarted")
         
     except Exception as e:
-        print(f"Error saving config: {e}", file=sys.stderr)
+        print(f"Error saving config: {e}")
         return 1
     finally:
         conn.close()
