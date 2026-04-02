@@ -114,7 +114,7 @@ def get_outbound_ips() -> list:
     outbound_ips = []
     
     try:
-        # Извлекаем target из realitySettings
+        # 1. Извлекаем target из realitySettings inbound
         result = subprocess.run(
             ["sqlite3", XUI_DB_PATH, "SELECT stream_settings FROM inbounds WHERE stream_settings LIKE '%target%';"],
             capture_output=True, text=True, timeout=10
@@ -122,13 +122,10 @@ def get_outbound_ips() -> list:
         
         if result.returncode == 0:
             for line in result.stdout.strip().split('\n'):
-                # Извлекаем target из JSON
                 match = re.search(r'"target":"([^"]+)"', line)
                 if match:
                     target = match.group(1)
                     hostname = target.split(':')[0]
-                    
-                    # Резолвим hostname в IP
                     try:
                         ip_result = subprocess.run(
                             ["getent", "hosts", hostname],
@@ -137,14 +134,41 @@ def get_outbound_ips() -> list:
                         if ip_result.returncode == 0:
                             for ip_line in ip_result.stdout.strip().split('\n'):
                                 ip = ip_line.split()[0]
-                                # Только IPv4
-                                if '.' in ip and ':' not in ip:
+                                if ip not in outbound_ips:
                                     outbound_ips.append(ip)
                     except Exception:
                         pass
+        
+        # 2. Извлекаем address из outbounds
+        result = subprocess.run(
+            ["sqlite3", XUI_DB_PATH, "SELECT value FROM settings WHERE key='xrayTemplateConfig';"],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            import json
+            config = json.loads(result.stdout.strip())
+            for outbound in config.get('outbounds', []):
+                if outbound.get('protocol') == 'vless':
+                    settings = outbound.get('settings', {})
+                    address = settings.get('address', '')
+                    if address and not address.startswith('geo:'):
+                        try:
+                            ip_result = subprocess.run(
+                                ["getent", "hosts", address],
+                                capture_output=True, text=True, timeout=5
+                            )
+                            if ip_result.returncode == 0:
+                                for ip_line in ip_result.stdout.strip().split('\n'):
+                                    ip = ip_line.split()[0]
+                                    if ip and ip not in outbound_ips:
+                                        outbound_ips.append(ip)
+                        except Exception:
+                            pass
+        
     except Exception as e:
-        logger.warning(f"Failed to get outbound IPs: {e}")
+        logger.warning(f"Error getting outbound IPs: {e}")
     
+    logger.info(f"Found {len(outbound_ips)} outbound IPs: {outbound_ips}")
     return outbound_ips
 
 
