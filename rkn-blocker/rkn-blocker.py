@@ -2,12 +2,13 @@
 """
 RKN Blocker - Блокировка запрещённых ресурсов РФ через 3x-ui routing domain rules
 
-Использует локальный файл доменов /opt/rkn-blocker/blocked_domains.json
+Автоматически скачивает список доменов из GitHub (1andrevich/Re-filter-lists)
 
 Usage:
     python3 rkn-blocker.py enable   - Включить блокировку
     python3 rkn-blocker.py disable  - Выключить блокировку
     python3 rkn-blocker.py status   - Статус блокировки
+    python3 rkn-blocker.py download - Скачать домены из GitHub
 """
 import json
 import sqlite3
@@ -17,7 +18,8 @@ import time
 from datetime import datetime
 
 DB_PATH = '/etc/x-ui/x-ui.db'
-DOMAINS_FILE = '/opt/rkn-blocker/blocked_domains.json'
+DOMAINS_FILE = '/opt/rkn-blocker/rkn_domains.json'
+GITHUB_URL = 'https://github.com/1andrevich/Re-filter-lists/releases/download/13062025/ruleset-domain-refilter_domains.json'
 
 
 def log(message: str):
@@ -28,10 +30,51 @@ def run_command(cmd: list, timeout: int = 60) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
+def download_domains() -> bool:
+    """Скачать список доменов из GitHub"""
+    log(f"Downloading domains from GitHub...")
+    log(f"URL: {GITHUB_URL}")
+    
+    try:
+        # Скачиваем с таймаутом 5 минут
+        result = run_command([
+            'curl', '-sL', '--connect-timeout', '30', '--max-time', '300',
+            '-o', DOMAINS_FILE, GITHUB_URL
+        ], timeout=300)
+        
+        if result.returncode != 0:
+            log(f"Download failed: {result.stderr}")
+            return False
+        
+        # Проверяем что файл не пустой
+        if subprocess.run(['test', '-s', DOMAINS_FILE]).returncode != 0:
+            log("Downloaded file is empty")
+            return False
+        
+        # Проверяем что это валидный JSON
+        try:
+            with open(DOMAINS_FILE, 'r') as f:
+                data = json.load(f)
+            if 'rules' not in data:
+                log("Invalid JSON structure")
+                return False
+        except Exception as e:
+            log(f"Invalid JSON: {e}")
+            return False
+        
+        log(f"Downloaded to {DOMAINS_FILE}")
+        return True
+    
+    except Exception as e:
+        log(f"Error downloading: {e}")
+        return False
+
+
 def load_domains() -> list:
     """Загрузить домены из локального файла"""
     if not subprocess.run(['test', '-f', DOMAINS_FILE]).returncode == 0:
         log(f"Domains file not found: {DOMAINS_FILE}")
+        log("Try: python3 rkn-blocker.py download")
         return []
     
     try:
@@ -41,8 +84,15 @@ def load_domains() -> list:
         domains = []
         for rule in data.get('rules', []):
             for domain in rule.get('domain', []):
-                if not domain.startswith('regexp:') and domain not in domains:
-                    domains.append(domain)
+                # Убираем префиксы если есть
+                clean_domain = domain
+                if domain.startswith('domain:'):
+                    clean_domain = domain[7:]
+                elif domain.startswith('regexp:'):
+                    continue  # Пропускаем regexp
+                
+                if clean_domain and clean_domain not in domains:
+                    domains.append(clean_domain)
         
         log(f"Loaded {len(domains)} domains from {DOMAINS_FILE}")
         return domains
@@ -246,21 +296,38 @@ def get_status() -> dict:
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: python3 rkn-blocker.py [enable|disable|status]")
+        print("Usage: python3 rkn-blocker.py [enable|disable|status|download]")
         sys.exit(1)
     
     action = sys.argv[1]
     
-    if action == 'enable':
+    if action == 'download':
+        success = download_domains()
+        if success:
+            domains = load_domains()
+            print(f"Downloaded {len(domains)} domains")
+        sys.exit(0 if success else 1)
+    
+    elif action == 'enable':
+        # Сначала пробуем скачать если файла нет
+        if not subprocess.run(['test', '-f', DOMAINS_FILE]).returncode == 0:
+            log("Domains file not found, downloading...")
+            if not download_domains():
+                print(json.dumps({"success": False, "error": "Failed to download domains"}))
+                sys.exit(1)
+        
         domains = load_domains()
         if not domains:
             print(json.dumps({"success": False, "error": "No domains found"}))
             sys.exit(1)
         result = enable_blocking(domains)
+    
     elif action == 'disable':
         result = disable_blocking()
+    
     elif action == 'status':
         result = get_status()
+    
     else:
         print(f"Unknown action: {action}")
         sys.exit(1)
