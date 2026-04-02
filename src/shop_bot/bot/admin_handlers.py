@@ -2029,7 +2029,7 @@ def get_admin_router() -> Router:
         text = (
             "🛡️ <b>Управление РКН блокировкой</b>\n\n"
             f"Статус: {'✅ ВКЛЮЧЕНО' if enabled else '❌ ОТКЛЮЧЕНО'}\n"
-            f"Заблокировано IP: {blocked_count}\n"
+            f"Заблокировано доменов: {blocked_count}\n"
             f"Последнее обновление: {last_update_str}\n\n"
             "Блокировка запрещённых ресурсов РФ.\n"
             "Автообновление: ежедневно в 04:00"
@@ -2097,7 +2097,7 @@ def get_admin_router() -> Router:
             
             if result.get("success"):
                 blocked_count = result.get("blocked_count", 0)
-                await wait_message.edit_text(f"✅ Списки обновлены! Заблокировано IP: {blocked_count}")
+                await wait_message.edit_text(f"✅ Списки обновлены! Заблокировано доменов: {blocked_count}")
                 # Возвращаем меню через 2 секунды
                 await asyncio.sleep(2)
                 await admin_rkn_menu(callback)

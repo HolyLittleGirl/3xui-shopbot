@@ -871,7 +871,7 @@
         const statusHtml = `
           <div class="alert ${isEnabled ? 'alert-success' : 'alert-secondary'}">
             <strong>Статус:</strong> ${isEnabled ? '✅ Активно' : '❌ Отключено'}<br>
-            ${blockedCount > 0 ? `<strong>Заблокировано IP:</strong> ${blockedCount}<br>` : ''}
+            ${blockedCount > 0 ? `<strong>Заблокировано доменов:</strong> ${blockedCount}<br>` : ''}
             ${lastUpdate ? `<strong>Последнее обновление:</strong> ${new Date(lastUpdate).toLocaleString()}` : ''}
           </div>
         `;
