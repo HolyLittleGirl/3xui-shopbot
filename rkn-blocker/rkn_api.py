@@ -20,7 +20,7 @@ from functools import wraps
 INSTALL_DIR = Path("/opt/rkn-blocker")
 STATE_FILE = INSTALL_DIR / "state.json"
 ENV_FILE = Path("/etc/rkn-blocker.env")
-BLOCK_IPS_SCRIPT = INSTALL_DIR / "block_ips.py"
+BLOCK_IPS_SCRIPT = INSTALL_DIR / "rkn-blocker.py"
 
 # Настройка логирования
 logging.basicConfig(
@@ -76,18 +76,18 @@ def run_blocker_command(action: str) -> dict:
     """Выполнить команду блокировщика."""
     try:
         result = subprocess.run(
-            ["python3", str(BLOCK_IPS_SCRIPT), action, "--json"],
+            ["python3", str(BLOCK_IPS_SCRIPT), action],
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=300  # 5 минут для загрузки IP списков
         )
-        
+
         if result.returncode == 0:
             return json.loads(result.stdout)
         else:
             logger.error(f"Ошибка выполнения: {result.stderr}")
             return {"success": False, "error": result.stderr}
-    
+
     except subprocess.TimeoutExpired:
         logger.error("Таймаут выполнения команды")
         return {"success": False, "error": "Timeout"}
