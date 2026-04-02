@@ -56,19 +56,20 @@ def check_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = load_token()
+
+        # Проверка токена из заголовка (приоритет)
+        auth_token = request.headers.get("X-RKN-Token")
         
-        # Проверка токена из JSON body
-        if request.is_json:
+        # Или из JSON body (для POST запросов)
+        if not auth_token and request.is_json:
             auth_token = request.json.get("token")
-        else:
-            auth_token = request.headers.get("X-RKN-Token")
-        
+
         if not auth_token or auth_token != token:
             logger.warning(f"Неавторизованный запрос от {request.remote_addr}")
             return jsonify({"error": "Unauthorized", "success": False}), 401
-        
+
         return f(*args, **kwargs)
-    
+
     return decorated
 
 
@@ -82,11 +83,15 @@ def run_blocker_command(action: str) -> dict:
             timeout=300  # 5 минут для загрузки IP списков
         )
 
-        if result.returncode == 0:
+        # Парсим вывод (даже если returncode != 0)
+        try:
             return json.loads(result.stdout)
-        else:
-            logger.error(f"Ошибка выполнения: {result.stderr}")
-            return {"success": False, "error": result.stderr}
+        except:
+            if result.returncode == 0:
+                return {"success": True}
+            else:
+                logger.error(f"Ошибка выполнения: {result.stderr}")
+                return {"success": False, "error": result.stderr}
 
     except subprocess.TimeoutExpired:
         logger.error("Таймаут выполнения команды")
