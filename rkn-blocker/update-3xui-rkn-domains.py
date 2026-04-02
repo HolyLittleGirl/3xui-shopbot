@@ -23,8 +23,11 @@ def get_blocked_domains():
         domains = []
         for rule in data.get('rules', []):
             for domain in rule.get('domain', []):
-                # Добавляем префикс domain: для Xray
-                domains.append(f"domain:{domain}")
+                # Добавляем префикс domain: только если его нет
+                if not domain.startswith('domain:') and not domain.startswith('regexp:'):
+                    domains.append(f"domain:{domain}")
+                else:
+                    domains.append(domain)
         
         return domains[:1000]  # Лимит 1000 доменов (Xray имеет ограничения)
     except Exception as e:
