@@ -2,50 +2,68 @@
 """
 Добавляет/удаляет RKN блокировку доменов в конфиге 3x-ui через базу данных
 
-Автоматически скачивает список доменов из GitHub (1andrevich/Re-filter-lists)
-и добавляет правила в 3x-ui routing.
+Использует локальный кэш доменов (/opt/rkn-blocker/rkn_domains.json).
+При отсутствии кэша создаёт тестовый список из 3 доменов.
 
 Usage:
     python3 update-3xui-rkn-domains.py enable   - Добавить RKN правила
     python3 update-3xui-rkn-domains.py disable  - Удалить RKN правила
+    python3 update-3xui-rkn-domains.py download - Скачать домены из GitHub
 """
 import json
 import sqlite3
 import subprocess
 import sys
 import time
-import urllib.request
-import gzip
-import io
+import os
 
 DB_PATH = '/etc/x-ui/x-ui.db'
-DOMAINS_URL = 'https://github.com/1andrevich/Re-filter-lists/releases/download/13062025/ruleset-domain-refilter_domains.json'
+DOMAINS_FILE = '/opt/rkn-blocker/rkn_domains.json'
+GITHUB_URL = 'https://github.com/1andrevich/Re-filter-lists/releases/download/13062025/ruleset-domain-refilter_domains.json'
 MAX_DOMAINS_PER_RULE = 1000  # Лимит Xray
 
 
 def download_domains():
     """Скачать список доменов из GitHub"""
-    print(f"Downloading domains from {DOMAINS_URL}...")
+    print(f"Downloading domains from GitHub...")
+    print(f"URL: {GITHUB_URL}")
     
     try:
-        # Скачиваем файл
-        req = urllib.request.Request(
-            DOMAINS_URL,
-            headers={'Accept-Encoding': 'gzip'}
-        )
-        with urllib.request.urlopen(req, timeout=60) as response:
-            data = response.read()
+        # Используем curl с таймаутом
+        result = subprocess.run([
+            'curl', '-sL', '--connect-timeout', '30', '--max-time', '300',
+            '-o', DOMAINS_FILE, GITHUB_URL
+        ], capture_output=True, text=True, timeout=300)
         
-        # Распаковываем если gzip
-        if response.headers.get('Content-Encoding') == 'gzip':
-            data = gzip.decompress(data)
+        if result.returncode != 0:
+            print(f"Download failed: {result.stderr}")
+            return False
         
-        # Парсим JSON
-        json_data = json.loads(data.decode('utf-8'))
+        # Проверяем что файл не пустой
+        if os.path.getsize(DOMAINS_FILE) < 1000:
+            print("Downloaded file is too small, might be invalid")
+            return False
         
-        # Извлекаем домены
+        print(f"Downloaded to {DOMAINS_FILE}")
+        return True
+    
+    except Exception as e:
+        print(f"Error downloading: {e}")
+        return False
+
+
+def load_domains():
+    """Загрузить домены из локального файла"""
+    if not os.path.exists(DOMAINS_FILE):
+        print(f"Domains file not found: {DOMAINS_FILE}")
+        return []
+    
+    try:
+        with open(DOMAINS_FILE, 'r') as f:
+            data = json.load(f)
+        
         domains = []
-        for rule in json_data.get('rules', []):
+        for rule in data.get('rules', []):
             for domain in rule.get('domain', []):
                 # Убираем префиксы если есть
                 clean_domain = domain
@@ -57,12 +75,31 @@ def download_domains():
                 if clean_domain and clean_domain not in domains:
                     domains.append(clean_domain)
         
-        print(f"Downloaded {len(domains)} domains")
+        print(f"Loaded {len(domains)} domains from {DOMAINS_FILE}")
         return domains
     
     except Exception as e:
-        print(f"Error downloading domains: {e}")
+        print(f"Error loading domains: {e}")
         return []
+
+
+def create_test_domains():
+    """Создать тестовый файл с 3 доменами"""
+    test_data = {
+        "rules": [{
+            "domain": [
+                "facebook.com",
+                "tiktok.com",
+                "x.com"
+            ]
+        }]
+    }
+    
+    with open(DOMAINS_FILE, 'w') as f:
+        json.dump(test_data, f, indent=2)
+    
+    print(f"Created test domains file: {DOMAINS_FILE}")
+    return ["facebook.com", "tiktok.com", "x.com"]
 
 
 def split_domains(domains, max_per_rule=MAX_DOMAINS_PER_RULE):
@@ -75,10 +112,18 @@ def split_domains(domains, max_per_rule=MAX_DOMAINS_PER_RULE):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python3 update-3xui-rkn-domains.py [enable|disable]")
+        print("Usage: python3 update-3xui-rkn-domains.py [enable|disable|download]")
         return 1
     
     action = sys.argv[1]
+    
+    # Обработка команды download
+    if action == 'download':
+        success = download_domains()
+        if success:
+            domains = load_domains()
+            print(f"Total domains: {len(domains)}")
+        return 0 if success else 1
     
     # Читаем конфиг из базы
     conn = sqlite3.connect(DB_PATH)
@@ -101,11 +146,13 @@ def main():
     rules = routing.get('rules', [])
     
     if action == 'enable':
-        # Скачиваем домены
-        domains = download_domains()
+        # Загружаем домены из локального файла
+        domains = load_domains()
+        
+        # Если файла нет - создаём тестовый
         if not domains:
-            print("No domains downloaded")
-            return 1
+            print("No domains file found, creating test file...")
+            domains = create_test_domains()
         
         # Разбиваем на чанки
         chunks = split_domains(domains)
@@ -116,7 +163,7 @@ def main():
         old_rkn_count = 0
         for rule in rules:
             domain_list = rule.get('domain', [])
-            # Проверяем не RKN ли это правило (первый домен facebook.com или много доменов)
+            # Проверяем не RKN ли это правило
             is_rkn = ('facebook.com' in domain_list) or (len(domain_list) > 10 and rule.get('outboundTag') == 'blocked')
             if is_rkn:
                 old_rkn_count += 1
@@ -161,6 +208,10 @@ def main():
             new_rules.append(rule)
         rules = new_rules
         print(f"Removed {removed_count} RKN domain rules")
+    
+    else:
+        print(f"Unknown action: {action}")
+        return 1
     
     routing['rules'] = rules
     config['routing'] = routing

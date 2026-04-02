@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Конфигурация
 DEFAULT_API_URL = "http://host.docker.internal:8765"
-DEFAULT_TIMEOUT = 30
+DEFAULT_TIMEOUT = 120  # 2 минуты для загрузки 43,000 доменов
 
 
 class RKNClient:
