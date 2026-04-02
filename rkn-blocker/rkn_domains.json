@@ -1,0 +1,48 @@
+{
+    "version": 1,
+    "rules": [
+        {
+            "domain": [
+                "facebook.com",
+                "www.facebook.com",
+                "m.facebook.com",
+                "fb.com",
+                "www.fb.com",
+                "fb.me",
+                "www.fb.me",
+                "fbcdn.net",
+                "www.fbcdn.net",
+                "x.com",
+                "www.x.com",
+                "twitter.com",
+                "www.twitter.com",
+                "mobile.twitter.com",
+                "api.twitter.com",
+                "t.co",
+                "www.t.co",
+                "twimg.com",
+                "www.twimg.com",
+                "abs.twimg.com",
+                "pbs.twimg.com",
+                "video.twimg.com",
+                "ton.twitter.com",
+                "syndication.twitter.com",
+                "platform.twitter.com",
+                "tiktok.com",
+                "www.tiktok.com",
+                "m.tiktok.com",
+                "tiktokv.com",
+                "www.tiktokv.com",
+                "musical.ly",
+                "www.musical.ly",
+                "instagram.com",
+                "www.instagram.com",
+                "m.instagram.com",
+                "cdninstagram.com",
+                "whatsapp.com",
+                "www.whatsapp.com",
+                "web.whatsapp.com"
+            ]
+        }
+    ]
+}
