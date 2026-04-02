@@ -475,8 +475,9 @@ def create_howto_vless_keyboard() -> InlineKeyboardMarkup:
     builder.button(text="📱 iOS", callback_data="howto_ios")
     builder.button(text="💻 Windows", callback_data="howto_windows")
     builder.button(text="🐧 Linux", callback_data="howto_linux")
+    builder.button(text="🍎 macOS", callback_data="howto_macos")
     builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 3, 1)
     return builder.as_markup()
 
 def create_howto_vless_keyboard_key(key_id: int) -> InlineKeyboardMarkup:
@@ -485,8 +486,17 @@ def create_howto_vless_keyboard_key(key_id: int) -> InlineKeyboardMarkup:
     builder.button(text="📱 iOS", callback_data="howto_ios")
     builder.button(text="💻 Windows", callback_data="howto_windows")
     builder.button(text="🐧 Linux", callback_data="howto_linux")
+    builder.button(text="🍎 macOS", callback_data="howto_macos")
     builder.button(text="⬅️ Назад к ключу", callback_data=f"show_key_{key_id}")
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 3, 1)
+    return builder.as_markup()
+
+def create_howto_ios_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для iOS-инструкции с кнопкой смены региона."""
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🌍 Как сменить регион", callback_data="howto_ios_change_region")
+    builder.button(text="⬅️ Назад в меню", callback_data="back_to_main_menu")
+    builder.adjust(1)
     return builder.as_markup()
 
 def create_back_to_menu_keyboard() -> InlineKeyboardMarkup:

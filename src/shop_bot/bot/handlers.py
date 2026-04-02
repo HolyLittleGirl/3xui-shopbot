@@ -261,7 +261,12 @@ async def show_main_menu(message: types.Message, edit_message: bool = False):
     trial_available = not (user_db_data and user_db_data.get('trial_used'))
     is_admin_flag = is_admin(user_id)
 
-    text = "🏠 <b>Главное меню</b>\n\nВыберите действие:"
+    text = (
+        "🏠 <b>Главное меню</b>\n\n"
+        "⚠️ Важно: в связи с блокировками Telegram бот может отвечать медленнее обычного.\n"
+        "Прошу понять и простить 🙏\n\n"
+        "Выберите действие:"
+    )
     keyboard = keyboards.create_main_menu_keyboard(user_keys, trial_available, is_admin_flag)
     # Отправляем только текст без фотографии
     if edit_message:
@@ -1571,7 +1576,13 @@ def get_user_router() -> Router:
                 logger.error(f"Failed to set trial_used for user {user_id}: {e}")
                 # Не прерываем процесс, ключ уже создан
 
-            await message.delete()
+            # Удаляем сообщение с процессом создания (не критично если не получится)
+            try:
+                await message.delete()
+            except Exception as e:
+                logger.warning(f"Could not delete message for user {user_id}: {e}")
+                # Не прерываем процесс - сообщение просто останется
+
             new_expiry_date = datetime.fromtimestamp(result['expiry_timestamp_ms'] / 1000)
             final_text = get_purchase_success_text("готов", len(get_user_keys(user_id)), new_expiry_date, result['connection_string'])
             await message.answer(text=final_text, reply_markup=keyboards.create_key_info_keyboard(new_key_id))
@@ -1863,20 +1874,81 @@ def get_user_router() -> Router:
     async def howto_ios_handler(callback: types.CallbackQuery):
         await callback.answer()
         await callback.message.edit_text(
-            "<b>Подключение на iOS (iPhone/iPad)</b>\n\n"
-            "<b>❗️ С 31.03.2026 в РФ чтобы скачать приложения для работы с VLESS протоколом, необходимо сменить регион в настройках Apple ID.</b>"
-            "1. <b>Установите приложение <a href=\"https://apps.apple.com/se/app/v2raytun/id6476628951?l=en-GB&platform=ipad\">V2RayTun</a>:</b> Загрузите и установите приложение V2RayTun из <a href=\"https://apps.apple.com/se/app/v2raytun/id6476628951?l=en-GB&platform=ipad\">App Store</a>.\n"
-            "2. <b>Скопируйте свой ключ (vless://):</b> Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n"
-            "3. <b>Импортируйте конфигурацию:</b>\n"
-            "   • Откройте V2RayTun.\n"
-            "   • Нажмите на значок +.\n"
-            "   • Выберите «Импортировать конфигурацию из буфера обмена» (или аналогичный пункт).\n"
-            "4. <b>Выберите сервер:</b> Выберите появившийся сервер в списке.\n"
-            "5. <b>Подключитесь к VPN:</b> Включите главный переключатель в V2RayTun. Возможно, потребуется разрешить создание VPN-подключения.\n"
-            "6. <b>Проверьте подключение:</b> После подключения проверьте свой IP-адрес, например, на https://whatismyipaddress.com/. Он должен отличаться от вашего реального IP.",
-        reply_markup=keyboards.create_howto_vless_keyboard(),
-        disable_web_page_preview=True
-    )
+            "📱 <b>Подключение на iOS (iPhone/iPad)</b>\n\n"
+            "<b>Шаг 1. Установите приложение</b>\n\n"
+            "Можно использовать любое из этих приложений (все работают с нашими ключами):\n\n"
+            "• <a href=\"https://apps.apple.com/us/app/v2raytun/id6476628951\">V2RayTun</a>\n"
+            "• <a href=\"https://apps.apple.com/us/app/v2box-v2ray-client/id6446814690\">V2Box</a>\n"
+            "• <a href=\"https://apps.apple.com/us/app/streisand/id6450534064\">Streisand</a>\n"
+            "• <a href=\"https://apps.apple.com/us/app/razze/id6752694105\">Razze</a>\n"
+            "• <a href=\"https://apps.apple.com/us/app/happ-proxy-utility/id6504287215\">Happ</a>\n\n"
+            "💡 <b>Настройка на примере V2RayTun:</b>\n"
+            "1. Откройте приложение и нажмите <b>+</b>.\n"
+            "2. Выберите <b>«Импортировать из буфера обмена»</b>.\n"
+            "3. Скопируйте ключ (vless://) в нашем боте — приложение подхватит его автоматически.\n"
+            "4. Выберите сервер и включите VPN.\n\n"
+            "⚠️ <b>Если приложения нет на телефоне и оно не скачивается из App Store:</b>\n\n"
+            "С 31.03.2026 эти приложения удалены из российского App Store. Чтобы скачать, нужно сменить регион Apple ID на другую страну (США, Турция, Казахстан и т.д.).\n\n"
+            "Нажмите кнопку <b>«Как сменить регион»</b> ниже — там подробная инструкция 👇",
+            reply_markup=keyboards.create_howto_ios_keyboard(),
+            disable_web_page_preview=True
+        )
+
+    @user_router.callback_query(F.data == "howto_ios_change_region")
+    @registration_required
+    async def howto_ios_change_region_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            "📱 <b>Как сменить регион Apple ID для установки VPN-приложений</b>\n\n"
+            "1️⃣ Откройте <b>Настройки</b> → нажмите на своё имя → <b>Медиаматериалы и покупки</b>\n\n"
+            "2️⃣ Выберите <b>«Просмотреть»</b> → при необходимости авторизуйтесь\n\n"
+            "3️⃣ Перейдите в <b>Страна/регион</b> → нажмите <b>«Изменить страну или регион»</b>\n\n"
+            "4️⃣ Выберите нужный регион, например:\n"
+            "🇺🇸 США  •  🇹🇷 Турция  •  🇰🇿 Казахстан\n\n"
+            "5️⃣ Примите условия и заполните данные:\n"
+            "• <b>Способ оплаты</b> → выберите <b>None (Нет)</b>\n"
+            "• <b>Адрес</b> → можно указать любой валидный\n\n"
+            "Пример для США:\n"
+            "• Street: <code>123 Main St</code>\n"
+            "• City: <code>New York</code>\n"
+            "• ZIP: <code>10001</code>\n"
+            "• Phone: <code>1234567890</code>\n\n"
+            "6️⃣ Сохраните изменения\n\n"
+            "7️⃣ Откройте App Store и скачайте необходимое приложение\n\n"
+            "⚠️ <b>Если не получается сменить регион:</b>\n"
+            "• Убедитесь, что нет активных подписок\n"
+            "• Баланс Apple ID должен быть равен <b>0</b>\n"
+            "• Выйдите из семейного доступа (если подключены)\n\n"
+            "✅ Готово! Теперь вы можете скачать VPN-приложение.",
+            reply_markup=keyboards.create_back_to_menu_keyboard(),
+            disable_web_page_preview=True
+        )
+
+    @user_router.callback_query(F.data == "howto_macos")
+    @registration_required
+    async def howto_macos_handler(callback: types.CallbackQuery):
+        await callback.answer()
+        await callback.message.edit_text(
+            "🍎 <b>Подключение на macOS</b>\n\n"
+            "<b>Шаг 1. Установите приложение V2Box</b>\n"
+            "Скачайте <a href=\"https://apps.apple.com/us/app/v2box-v2ray-client/id6446814690\">V2Box</a> из App Store.\n\n"
+            "<b>Шаг 2. Скопируйте ключ (vless://)</b>\n"
+            "Перейдите в раздел «Моя подписка» в нашем боте и скопируйте свой ключ.\n\n"
+            "<b>Шаг 3. Импортируйте конфигурацию</b>\n"
+            "• Откройте V2Box.\n"
+            "• Нажмите <b>+</b> (добавить профиль).\n"
+            "• Приложение автоматически предложит импортировать конфигурацию из буфера обмена.\n"
+            "• Если этого не произошло — вставьте ключ вручную и нажмите <b>«Добавить»</b>.\n\n"
+            "<b>Шаг 4. Подключитесь</b>\n"
+            "• Выберите добавленный сервер из списка.\n"
+            "• Включите VPN-подключение.\n"
+            "• При запросе разрешите создание VPN-конфигурации в системных настройках.\n\n"
+            "<b>Шаг 5. Проверьте подключение</b>\n"
+            "Откройте браузер и проверьте IP на <a href=\"https://whatismyipaddress.com/\">whatismyipaddress.com</a>. Он должен отличаться от вашего реального.\n\n"
+            "💡 <b>Альтернатива:</b> также можно использовать <a href=\"https://github.com/hiddify/hiddify-app/releases\">Hiddify для macOS</a> — установка аналогична.",
+            reply_markup=keyboards.create_howto_vless_keyboard(),
+            disable_web_page_preview=True
+        )
 
     @user_router.callback_query(F.data == "howto_windows")
     @registration_required

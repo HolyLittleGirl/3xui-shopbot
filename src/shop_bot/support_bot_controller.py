@@ -3,6 +3,7 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 
 from shop_bot.data_manager import database
@@ -64,7 +65,8 @@ class SupportBotController:
             }
 
         try:
-            self._bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+            session = AiohttpSession(timeout=90)
+            self._bot = Bot(token=token, session=session, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
             self._dp = Dispatcher()
             
             router = get_support_router()

@@ -4,6 +4,7 @@ import logging
 from yookassa import Configuration
 from aiogram import Bot, Dispatcher, Router
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode 
 
 from shop_bot.data_manager import database
@@ -64,7 +65,9 @@ class BotController:
             }
 
         try:
-            self._bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+            # Увеличиваем таймаут для работы через блокировки в РФ
+            session = AiohttpSession(timeout=90)
+            self._bot = Bot(token=token, session=session, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
             self._dp = Dispatcher()
 
             # Вешаем BanMiddleware на уровни событий, где доступен event_from_user
