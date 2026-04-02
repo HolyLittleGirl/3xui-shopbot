@@ -209,6 +209,88 @@ async def command_handler(message: Message):
 
 ---
 
+## 🛡️ RKN Интеграция
+
+RKN модуль предоставляет блокировку запрещённых ресурсов РФ через доменную фильтрацию.
+
+### Архитектура
+
+```
+/opt/rkn-blocker/
+├── block_ips.py                    # Основной скрипт
+├── rkn_api.py                      # HTTP API (порт 8765)
+├── update-3xui-rkn-domains.py      # Обновление 3x-ui routing
+└── systemd/
+    ├── rkn-blocker.service
+    ├── rkn-blocker.timer
+    └── rkn-api.service
+```
+
+### Интеграция с веб-панелью
+
+Веб-панель автоматически обнаруживает RKN API при наличии:
+- Файла `/opt/rkn-blocker/rkn_api.py`
+- Токена в `/etc/rkn-blocker.env`
+
+API endpoints:
+- `GET /api/rkn/status` — статус блокировки
+- `POST /api/rkn/enable` — включить
+- `POST /api/rkn/disable` — выключить
+- `POST /api/rkn/update` — обновить списки
+
+### Интеграция с Telegram ботом
+
+Модуль `src/shop_bot/modules/rkn_client.py` предоставляет клиент для RKN API.
+
+Пример использования:
+```python
+from shop_bot.modules import rkn_client
+
+client = rkn_client.get_client()
+status = client.get_status()  # {'enabled': True, 'blocked_count': N}
+client.enable()  # Включить
+client.disable()  # Выключить
+```
+
+### Добавление доменов для блокировки
+
+Домены загружаются из GitHub (1andrevich/Re-filter-lists).
+
+Для добавления своих доменов:
+1. Отредактируйте `/tmp/rkn_domains.json`
+2. Формат:
+```json
+{
+    "rules": [{
+        "domain": ["example.com", "test.com"]
+    }]
+}
+```
+3. Запустите обновление: `curl -X POST http://localhost:1488/api/rkn/update`
+
+### Troubleshooting
+
+```bash
+# Проверка статуса
+systemctl status rkn-api.service
+systemctl status rkn-blocker.timer
+
+# Логи
+journalctl -u rkn-api.service -n 50
+tail -f /var/log/rkn-blocker/block_ips.log
+
+# Проверка ipset
+ipset list rkn_whitelist
+
+# Тест API
+TOKEN=$(grep RKN_API_TOKEN /etc/rkn-blocker.env | cut -d= -f2)
+curl -s http://localhost:8765/status -H "X-RKN-Token: $TOKEN" | python3 -m json.tool
+```
+
+Полная документация: [docs/RKN_SETUP.md](docs/RKN_SETUP.md)
+
+---
+
 ## ✅ Production Checklist
 
 - [ ] Включить Режим Production (автозапуск)
@@ -246,14 +328,17 @@ docker-compose down && docker-compose build --no-cache && docker-compose up -d
 
 ## 🗺️ Roadmap
 
-### В разработке
-- [ ] Интеграция с реестром запрещённых ресурсов (РКН)
-- [ ] Ручное управление блокировками (вкл/выкл)
-- [ ] Статус блокировок в веб-панели
+### ✅ Реализовано
+- [x] Интеграция с реестром запрещённых ресурсов (РКН)
+- [x] Ручное управление блокировками (вкл/выкл)
+- [x] Статус блокировок в веб-панели
+- [x] Доменная блокировка через 3x-ui routing
+- [x] IP блокировка через iptables/ipset
+- [x] Автообновление списков (ежедневно в 04:00)
 
 ### Запланировано
 - [ ] Уведомления об обновлении списков блокировок
-- [ ] Экспорт логов блокировок
+- [ ] Расширенная статистика по блокировкам
 - [ ] Расширенная статистика по платежам
 
 ---
