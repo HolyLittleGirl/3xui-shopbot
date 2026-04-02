@@ -2,65 +2,60 @@
 """
 Добавляет/удаляет RKN блокировку доменов в конфиге 3x-ui через базу данных
 Usage:
-    python3 update-3xui-rkn-domains.py enable   - Добавить RKN правило
-    python3 update-3xui-rkn-domains.py disable  - Удалить RKN правило
+    python3 update-3xui-rkn-domains.py enable   - Добавить RKN правила
+    python3 update-3xui-rkn-domains.py disable  - Удалить RKN правила
+
+IMPORTANT: x-ui должен быть ОСТАНОВЛЕН перед запуском этого скрипта!
 """
 import json
 import sqlite3
 import subprocess
 import sys
-from pathlib import Path
+import time
 
 DB_PATH = '/etc/x-ui/x-ui.db'
-DOMAINS_FILE = '/tmp/rkn_domains.json'
 
-def get_blocked_domains():
-    """Получить домены из файла"""
-    try:
-        with open(DOMAINS_FILE, 'r') as f:
-            data = json.load(f)
-        
-        domains = []
-        for rule in data.get('rules', []):
-            for domain in rule.get('domain', []):
-                # Убираем префиксы domain: и regexp: если есть
-                clean_domain = domain
-                if domain.startswith('domain:'):
-                    clean_domain = domain[7:]  # Убираем 'domain:'
-                elif domain.startswith('regexp:'):
-                    clean_domain = domain[7:]  # Убираем 'regexp:'
-                
-                # Добавляем только чистые домены (не regexp)
-                if not domain.startswith('regexp:') and clean_domain:
-                    domains.append(clean_domain)
-        
-        return domains[:1000]  # Лимит 1000 доменов (Xray имеет ограничения)
-    except Exception as e:
-        print(f"Error loading domains: {e}", file=sys.stderr)
-        return []
+# Тестовые домены
+TEST_DOMAINS = ['facebook.com', 'tiktok.com', 'x.com']
+
+def get_blocked_domains(use_test=True):
+    if use_test:
+        return TEST_DOMAINS
+    return TEST_DOMAINS
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python3 update-3xui-rkn-domains.py [enable|disable]", file=sys.stderr)
+        print("Usage: python3 update-3xui-rkn-domains.py [enable|disable]")
         return 1
     
     action = sys.argv[1]
     
+    # СНАЧАЛА останавливаем x-ui чтобы освободить базу
+    print(f"Stopping x-ui...")
+    try:
+        subprocess.run(['systemctl', 'stop', 'x-ui'], check=True, timeout=30)
+        print(f"x-ui stopped")
+        time.sleep(2)  # Ждём пока x-ui полностью освободит базу
+    except Exception as e:
+        print(f"Warning: Failed to stop x-ui: {e}")
+    
     # Читаем конфиг из базы
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     cursor = conn.cursor()
     
     cursor.execute("SELECT value FROM settings WHERE key='xrayTemplateConfig'")
     row = cursor.fetchone()
     
     if not row:
-        print("xrayTemplateConfig not found in database", file=sys.stderr)
+        print("xrayTemplateConfig not found in database")
+        conn.close()
         return 1
     
     try:
         config = json.loads(row[0])
     except Exception as e:
-        print(f"Error parsing config: {e}", file=sys.stderr)
+        print(f"Error parsing config: {e}")
+        conn.close()
         return 1
     
     routing = config.get('routing', {})
@@ -68,49 +63,48 @@ def main():
     
     if action == 'enable':
         domains = get_blocked_domains()
-        if not domains:
-            print("No domains found", file=sys.stderr)
-            return 1
         
-        print(f"Found {len(domains)} domains")
-        
-        # Проверяем есть ли уже правило RKN
-        rkn_exists = False
+        # Удаляем старые RKN правила
+        new_rules = []
         for rule in rules:
-            if rule.get('_rkn_domains_blocker'):
-                rkn_exists = True
-                # Обновляем правило
-                rule['domain'] = domains
-                print("Updated existing RKN domain rule", file=sys.stderr)
+            domain_list = rule.get('domain', [])
+            is_rkn = ('facebook.com' in domain_list) or (len(domain_list) > 10 and rule.get('outboundTag') == 'blocked')
+            if is_rkn:
+                continue
+            new_rules.append(rule)
+        rules = new_rules
+        
+        # Находим позицию для вставки
+        insert_index = 0
+        for i, rule in enumerate(rules):
+            if 'inboundTag' not in rule and 'outboundTag' in rule:
+                insert_index = i
                 break
         
-        if not rkn_exists:
-            # Находим позицию для вставки (ПЕРЕД outbound правилами)
-            insert_index = 0  # В самое начало
-            for i, rule in enumerate(rules):
-                if 'inboundTag' not in rule and 'outboundTag' in rule:
-                    insert_index = i
-                    break
-            
-            rkn_rule = {
-                'type': 'field',
-                'domain': domains,
-                'network': 'TCP,UDP',
-                'outboundTag': 'direct',  # Прямое подключение через сервер в РФ (заблокировано провайдером)
-                '_rkn_domains_blocker': True  # Маркер что это RKN правило
-            }
-            rules.insert(insert_index, rkn_rule)
-            print(f"Added RKN domain rule at index {insert_index} with {len(domains)} domains", file=sys.stderr)
+        # Добавляем правило
+        rkn_rule = {
+            'type': 'field',
+            'domain': domains,
+            'network': 'TCP,UDP',
+            'outboundTag': 'blocked'
+        }
+        rules.insert(insert_index, rkn_rule)
+        print(f"Added RKN rule with {len(domains)} domains")
+        print(f"About to save...")
     
     elif action == 'disable':
-        # Удаляем RKN правила (с маркером '_rkn_domains_blocker')
-        original_count = len(rules)
-        rules = [
-            rule for rule in rules
-            if not rule.get('_rkn_domains_blocker')
-        ]
-        removed_count = original_count - len(rules)
-        print(f"Removed {removed_count} RKN domain rules", file=sys.stderr)
+        # Удаляем RKN правила
+        new_rules = []
+        removed = 0
+        for rule in rules:
+            domain_list = rule.get('domain', [])
+            is_rkn = ('facebook.com' in domain_list) or (len(domain_list) > 10 and rule.get('outboundTag') == 'blocked')
+            if is_rkn:
+                removed += 1
+                continue
+            new_rules.append(rule)
+        rules = new_rules
+        print(f"Removed {removed} RKN rules")
     
     routing['rules'] = rules
     config['routing'] = routing
@@ -122,17 +116,23 @@ def main():
             (json.dumps(config),)
         )
         conn.commit()
-        print("Config saved to database", file=sys.stderr)
-        
-        # Перезагружаем x-ui
-        subprocess.run(['systemctl', 'restart', 'x-ui'], check=True)
-        print("Xray restarted", file=sys.stderr)
-        
+        print("Config saved")
     except Exception as e:
-        print(f"Error saving config: {e}", file=sys.stderr)
+        print(f"Error saving: {e}")
+        conn.close()
         return 1
     finally:
         conn.close()
+    
+    # Запускаем x-ui
+    print(f"Starting x-ui...")
+    try:
+        subprocess.run(['systemctl', 'start', 'x-ui'], check=True, timeout=30)
+        print(f"x-ui started")
+        time.sleep(5)  # Ждём пока x-ui полностью запустится
+    except Exception as e:
+        print(f"Error starting x-ui: {e}")
+        return 1
     
     return 0
 

@@ -117,41 +117,50 @@ def main():
             print("No IPs found")
             return 1
         
-        # Проверяем есть ли уже правило RKN
-        rkn_exists = False
+        # Сначала удаляем старое RKN правило если есть
+        new_rules = []
         for rule in rules:
-            if rule.get('_rkn_ips_blocker'):
-                rkn_exists = True
-                # Обновляем правило
-                rule['ip'] = ips
-                print(f"Updated existing RKN IP rule with {len(ips)} IPs")
+            ips_count = len(rule.get('ip', []))
+            outbound = rule.get('outboundTag')
+            # Пропускаем старые RKN правила
+            if ips_count > 100 and outbound == 'direct':
+                continue
+            new_rules.append(rule)
+        rules = new_rules
+        
+        # Находим позицию для вставки (ПЕРЕД outbound правилами)
+        insert_index = 0
+        for i, rule in enumerate(rules):
+            if 'inboundTag' not in rule and 'outboundTag' in rule:
+                insert_index = i
                 break
         
-        if not rkn_exists:
-            # Находим позицию для вставки (ПЕРЕД outbound правилами)
-            insert_index = 0
-            for i, rule in enumerate(rules):
-                if 'inboundTag' not in rule and 'outboundTag' in rule:
-                    insert_index = i
-                    break
-            
-            rkn_rule = {
-                'type': 'field',
-                'ip': ips,
-                'outboundTag': 'direct',  # Прямое подключение через сервер в РФ (заблокировано провайдером)
-                '_rkn_ips_blocker': True  # Маркер что это RKN правило
-            }
-            rules.insert(insert_index, rkn_rule)
-            print(f"Added RKN IP rule at index {insert_index} with {len(ips)} IPs")
+        rkn_rule = {
+            'type': 'field',
+            'ip': ips,
+            'outboundTag': 'direct',  # Прямое подключение через сервер в РФ (заблокировано провайдером)
+        }
+        rules.insert(insert_index, rkn_rule)
+        print(f"Added RKN IP rule at index {insert_index} with {len(ips)} IPs")
     
     elif action == 'disable':
-        # Удаляем RKN правила (с маркером '_rkn_ips_blocker')
+        # Удаляем RKN правила (первое правило с >100 IP и outboundTag: direct)
         original_count = len(rules)
-        rules = [
-            rule for rule in rules
-            if not rule.get('_rkn_ips_blocker')
-        ]
-        removed_count = original_count - len(rules)
+        new_rules = []
+        removed_count = 0
+        rkn_removed = False
+        for rule in rules:
+            # Проверяем не RKN ли это правило
+            ips = rule.get('ip', [])
+            outbound = rule.get('outboundTag')
+            is_rkn = (len(ips) > 100 and outbound == 'direct')
+            
+            if is_rkn and not rkn_removed:
+                removed_count += 1
+                rkn_removed = True
+                continue  # Пропускаем это правило
+            new_rules.append(rule)
+        rules = new_rules
         print(f"Removed {removed_count} RKN IP rules")
     
     routing['rules'] = rules
@@ -166,15 +175,22 @@ def main():
         conn.commit()
         print("Config saved to database")
         
-        # Перезагружаем x-ui
-        subprocess.run(['systemctl', 'restart', 'x-ui'], check=True)
-        print("Xray restarted")
-        
     except Exception as e:
         print(f"Error saving config: {e}")
         return 1
     finally:
         conn.close()
+    
+    # Перезагружаем x-ui (stop → start чтобы перечитал конфиг из базы)
+    try:
+        subprocess.run(['systemctl', 'stop', 'x-ui'], check=True, timeout=30)
+        import time
+        time.sleep(2)
+        subprocess.run(['systemctl', 'start', 'x-ui'], check=True, timeout=30)
+        print("Xray restarted")
+    except Exception as e:
+        print(f"Error restarting x-ui: {e}")
+        return 1
     
     return 0
 
