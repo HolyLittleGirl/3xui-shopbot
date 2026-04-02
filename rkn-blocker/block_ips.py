@@ -414,19 +414,19 @@ def enable_blocking() -> dict:
     
     logger.info(f"Блокировка включена. Заблокировано {len(ips)} IP адресов")
     
-    # Обновляем конфиг 3x-ui - добавляем доменную блокировку
+    # Обновляем конфиг 3x-ui - добавляем IP блокировку
     try:
         import subprocess
         import time
         time.sleep(1)  # Ждём пока ipset полностью обновится
         
         result = subprocess.run(
-            ['python3', '/opt/rkn-blocker/update-3xui-rkn-domains.py', 'enable'],
+            ['python3', '/opt/rkn-blocker/update-3xui-rkn-ips.py', 'enable'],
             capture_output=True, text=True, timeout=120
         )
-        logger.info(f"3x-ui domain rules updated: {result.stdout.strip()}")
+        logger.info(f"3x-ui IP rules updated: {result.stdout.strip()}")
     except Exception as e:
-        logger.warning(f"Failed to update 3x-ui domain rules: {e}")
+        logger.warning(f"Failed to update 3x-ui IP rules: {e}")
     
     return {
         "success": True,
@@ -447,19 +447,19 @@ def disable_blocking() -> dict:
     # Удаляем ipset
     destroy_ipset()
     
-    # Удаляем доменные правила из 3x-ui конфига
+    # Удаляем IP правила из 3x-ui конфига
     try:
         import subprocess
         result = subprocess.run(
-            ['python3', '/opt/rkn-blocker/update-3xui-rkn-domains.py', 'disable'],
+            ['python3', '/opt/rkn-blocker/update-3xui-rkn-ips.py', 'disable'],
             capture_output=True, text=True, timeout=120
         )
-        logger.info(f"3x-ui domain rules updated: {result.stdout.strip()}")
+        logger.info(f"3x-ui IP rules updated: {result.stdout.strip()}")
         # Ждём пока x-ui перезагрузится
         import time
         time.sleep(5)
     except Exception as e:
-        logger.warning(f"Failed to update 3x-ui domain rules: {e}")
+        logger.warning(f"Failed to update 3x-ui IP rules: {e}")
     
     # Сохраняем состояние (но сохраняем last_update и blocked_count для истории)
     state["enabled"] = False
