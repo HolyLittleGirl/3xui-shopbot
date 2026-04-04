@@ -4,7 +4,9 @@ import logging
 from yookassa import Configuration
 from aiogram import Bot, Dispatcher, Router
 from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode 
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.exceptions import TelegramNetworkError
+from aiogram.enums import ParseMode
 
 from shop_bot.data_manager import database
 from shop_bot.bot.handlers import get_user_router
@@ -13,6 +15,24 @@ from shop_bot.bot.middlewares import BanMiddleware
 from shop_bot.bot import handlers
 
 logger = logging.getLogger(__name__)
+
+
+class RetrySession(AiohttpSession):
+    """AiohttpSession с авто-повтором при таймаутах."""
+    def __init__(self, max_retries: int = 3, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._max_retries = max_retries
+
+    async def make_request(self, *args, **kwargs):
+        for attempt in range(1, self._max_retries + 1):
+            try:
+                return await super().make_request(*args, **kwargs)
+            except TelegramNetworkError:
+                if attempt >= self._max_retries:
+                    raise
+                delay = 1.5 ** attempt
+                logger.warning(f"Таймаут при отправке, попытка {attempt}/{self._max_retries}, жду {delay:.1f}с")
+                await asyncio.sleep(delay)
 
 class BotController:
     def __init__(self):
@@ -77,6 +97,7 @@ class BotController:
         try:
             self._bot = Bot(
                 token=token,
+                session=RetrySession(max_retries=3),
                 default=DefaultBotProperties(parse_mode=ParseMode.HTML)
             )
             self._dp = Dispatcher()
