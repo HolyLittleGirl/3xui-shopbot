@@ -28,17 +28,28 @@ class SupportBotController:
 
     async def _start_polling(self):
         self._is_running = True
-        logger.info("Запущен опрос Telegram (polling)...")
-        try:
-            await self._dp.start_polling(self._bot)
-        except asyncio.CancelledError:
-            logger.info("Опрос остановлен (задача отменена).")
-        except Exception as e:
-            logger.error(f"Ошибка во время опроса: {e}", exc_info=True)
-        finally:
-            logger.info("Опрос корректно остановлен.")
-            self._is_running = False
-            self._task = None
+        attempt = 0
+        while self._is_running:
+            attempt += 1
+            try:
+                logger.info(f"Запущен опрос Telegram (polling). Попытка #{attempt}.")
+                await self._dp.start_polling(self._bot)
+            except asyncio.CancelledError:
+                logger.info("Опрос остановлен (задача отменена).")
+                break
+            except Exception as e:
+                if not self._is_running:
+                    break
+                logger.error(f"Ошибка polling (попытка #{attempt}): {e}")
+                delay = min(2 ** min(attempt, 5), 60)
+                logger.info(f"Ждём {delay} сек и пробуем снова...")
+                try:
+                    await asyncio.sleep(delay)
+                except asyncio.CancelledError:
+                    break
+        logger.info("Опрос корректно остановлен.")
+        self._is_running = False
+        self._task = None
 
     def start(self):
         logger.info(f"SupportBotController.start() вызван. _is_running={self._is_running}, _loop={self._loop is not None}, _dp={self._dp is not None}")
