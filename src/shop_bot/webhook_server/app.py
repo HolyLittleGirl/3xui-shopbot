@@ -475,7 +475,8 @@ def create_webhook_app(bot_controller_instance):
         # 1) Создать/обновить клиента на XUI-хосте
         result = None
         try:
-            result = asyncio.run(xui_api.create_or_update_key_on_host(host_name, key_email, expiry_timestamp_ms=expiry_ms or None))
+            sub_token = f"realruvpnbot{user_id}"
+            result = asyncio.run(xui_api.create_or_update_key_on_host(host_name, key_email, expiry_timestamp_ms=expiry_ms or None, sub_token=sub_token))
         except Exception as e:
             logger.error(f"Не удалось создать/обновить ключ на хосте: {e}")
             result = None
@@ -564,7 +565,8 @@ def create_webhook_app(bot_controller_instance):
             xui_uuid = str(uuid.uuid4())
 
         try:
-            result = asyncio.run(xui_api.create_or_update_key_on_host(host_name, key_email, expiry_timestamp_ms=expiry_ms or None))
+            sub_token = f"realruvpnbot{user_id}"
+            result = asyncio.run(xui_api.create_or_update_key_on_host(host_name, key_email, expiry_timestamp_ms=expiry_ms or None, sub_token=sub_token))
         except Exception as e:
             result = None
             logger.error(f"create_key_ajax_route: ошибка панели/хоста: {e}")
@@ -682,10 +684,13 @@ def create_webhook_app(bot_controller_instance):
 
             # 1) Применяем новый срок на 3xui (чтобы дата в панели совпадала с реальной)
             try:
+                key_owner_id = key.get('user_id')
+                sub_token = f"realruvpnbot{key_owner_id}" if key_owner_id else None
                 result = asyncio.run(xui_api.create_or_update_key_on_host(
                     host_name=key.get('host_name'),
                     email=key.get('key_email'),
-                    expiry_timestamp_ms=new_ms
+                    expiry_timestamp_ms=new_ms,
+                    sub_token=sub_token
                 ))
             except Exception as e:
                 result = None

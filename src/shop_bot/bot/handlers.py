@@ -1521,7 +1521,8 @@ def get_user_router() -> Router:
             result = await xui_api.create_or_update_key_on_host(
                 host_name=host_name,
                 email=candidate_email,
-                days_to_add=int(get_setting("trial_duration_days") or 1)
+                days_to_add=int(get_setting("trial_duration_days") or 1),
+                sub_token=f"realruvpnbot{user_id}"
             )
             
             if not result:
@@ -1553,7 +1554,8 @@ def get_user_router() -> Router:
                 result_retry = await xui_api.create_or_update_key_on_host(
                     host_name=host_name,
                     email=fallback_email,
-                    days_to_add=int(get_setting("trial_duration_days") or 1)
+                    days_to_add=int(get_setting("trial_duration_days") or 1),
+                    sub_token=f"realruvpnbot{user_id}"
                 )
                 if result_retry:
                     new_key_id = add_new_key(
@@ -1748,7 +1750,8 @@ def get_user_router() -> Router:
                 new_host_name,
                 new_email,
                 days_to_add=None,
-                expiry_timestamp_ms=expiry_timestamp_ms_exact
+                expiry_timestamp_ms=expiry_timestamp_ms_exact,
+                sub_token=f"realruvpnbot{key_data['user_id']}"
             )
             if not result:
                 await callback.message.edit_text(
@@ -2835,7 +2838,8 @@ async def process_successful_payment(bot: Bot, metadata: dict):
         result = await xui_api.create_or_update_key_on_host(
             host_name=host_name,
             email=candidate_email,
-            days_to_add=int(months * 30)
+            days_to_add=int(months * 30),
+            sub_token=f"realruvpnbot{user_id}"
         )
         if not result:
             await processing_message.edit_text("❌ Не удалось создать/обновить ключ в панели.")

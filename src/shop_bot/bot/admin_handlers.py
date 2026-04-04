@@ -806,7 +806,9 @@ def get_admin_router() -> Router:
             return
         # Продление на хосте
         try:
-            resp = await create_or_update_key_on_host(host, email, days_to_add=days)
+            key_owner_id = key.get('user_id')
+            sub_token = f"realruvpnbot{key_owner_id}" if key_owner_id else None
+            resp = await create_or_update_key_on_host(host, email, days_to_add=days, sub_token=sub_token)
         except Exception as e:
             logger.error(f"Admin key extend: host update failed for key #{key_id}: {e}")
             resp = None
@@ -1341,7 +1343,8 @@ def get_admin_router() -> Router:
 
         # Создаём/обновляем клиента на хосте с days_to_add
         try:
-            host_resp = await create_or_update_key_on_host(host_name, generated_email, days_to_add=days)
+            sub_token = f"realruvpnbot{user_id}" if user_id else None
+            host_resp = await create_or_update_key_on_host(host_name, generated_email, days_to_add=days, sub_token=sub_token)
         except Exception as e:
             host_resp = None
             logging.error(f"Gift flow: failed to create client on host '{host_name}' for user {user_id}: {e}")
@@ -1786,7 +1789,9 @@ def get_admin_router() -> Router:
         # Обновим на хосте
         resp = None
         try:
-            resp = await create_or_update_key_on_host(host, email, days_to_add=days)
+            key_owner_id = key.get('user_id')
+            sub_token = f"realruvpnbot{key_owner_id}" if key_owner_id else None
+            resp = await create_or_update_key_on_host(host, email, days_to_add=days, sub_token=sub_token)
         except Exception as e:
             logger.error(f"Extend flow: failed to update client on host '{host}' for key #{key_id}: {e}")
         if not resp or not resp.get('client_uuid') or not resp.get('expiry_timestamp_ms'):

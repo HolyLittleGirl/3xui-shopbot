@@ -87,7 +87,7 @@ def get_subscription_link(user_uuid: str, host_url: str, host_name: str | None =
     scheme = parsed.scheme if parsed.scheme in ("http", "https") else "https"
     return f"{scheme}://{hostname}/sub/{user_uuid}?format=v2ray"
 
-def update_or_create_client_on_panel(api: Api, inbound_id: int, email: str, days_to_add: int | None = None, target_expiry_ms: int | None = None) -> tuple[str | None, int | None, str | None]:
+def update_or_create_client_on_panel(api: Api, inbound_id: int, email: str, days_to_add: int | None = None, target_expiry_ms: int | None = None, sub_token: str | None = None) -> tuple[str | None, int | None, str | None]:
     try:
         inbound_to_modify = api.inbound.get_by_id(inbound_id)
         if not inbound_to_modify:
@@ -164,9 +164,9 @@ def update_or_create_client_on_panel(api: Api, inbound_id: int, email: str, days
             except Exception:
                 pass
 
+            # Set subscription token: prefer explicit sub_token, fall back to random
             try:
-                import secrets
-                client_sub_token = secrets.token_hex(12)
+                client_sub_token = sub_token if sub_token else secrets.token_hex(12)
                 for attr in ("subId", "subscription", "sub_id"):
                     try:
                         setattr(new_client, attr, client_sub_token)
@@ -184,7 +184,7 @@ def update_or_create_client_on_panel(api: Api, inbound_id: int, email: str, days
         logger.error(f"Error in update_or_create_client_on_panel: {e}", exc_info=True)
         return None, None, None
 
-async def create_or_update_key_on_host(host_name: str, email: str, days_to_add: int | None = None, expiry_timestamp_ms: int | None = None) -> Dict | None:
+async def create_or_update_key_on_host(host_name: str, email: str, days_to_add: int | None = None, expiry_timestamp_ms: int | None = None, sub_token: str | None = None) -> Dict | None:
     host_data = get_host(host_name)
     if not host_data:
         logger.error(f"Workflow failed: Host '{host_name}' not found in the database.")
@@ -206,7 +206,7 @@ async def create_or_update_key_on_host(host_name: str, email: str, days_to_add: 
 
     # Prefer exact expiry when provided (e.g., switching hosts), otherwise add days (purchase/extend/trial)
     client_uuid, new_expiry_ms, client_sub_token = update_or_create_client_on_panel(
-        api, inbound.id, email, days_to_add=days_to_add, target_expiry_ms=expiry_timestamp_ms
+        api, inbound.id, email, days_to_add=days_to_add, target_expiry_ms=expiry_timestamp_ms, sub_token=sub_token
     )
 
     if not client_uuid:
