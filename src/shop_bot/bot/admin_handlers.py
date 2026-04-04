@@ -1143,9 +1143,6 @@ def get_admin_router() -> Router:
             await message.answer("❌ Не удалось обновить email (возможно, уже занят)")
         await state.clear()
 
-    class AdminEditKeyHost(StatesGroup):
-        waiting_for_host = State()
-
     @admin_router.callback_query(F.data.startswith("admin_key_edit_host_"))
     async def admin_key_edit_host_start(callback: types.CallbackQuery, state: FSMContext):
         if not is_admin(callback.from_user.id):
@@ -1157,29 +1154,27 @@ def get_admin_router() -> Router:
         except Exception:
             await callback.message.answer("❌ Неверный формат key_id")
             return
-        await state.update_data(edit_key_id=key_id)
-        await state.set_state(AdminEditKeyHost.waiting_for_host)
-        await callback.message.edit_text(
-            f"Введите новое имя сервера (host) для ключа #{key_id}",
-            reply_markup=keyboards.create_admin_cancel_keyboard()
-        )
 
-    @admin_router.message(AdminEditKeyHost.waiting_for_host)
-    async def admin_key_edit_host_commit(message: types.Message, state: FSMContext):
-        if not is_admin(message.from_user.id):
+        key_data = get_key_by_id(key_id)
+        if not key_data:
+            await callback.message.answer("❌ Ключ не найден")
             return
-        data = await state.get_data()
-        key_id = int(data.get('edit_key_id'))
-        new_host = (message.text or '').strip()
-        if not new_host:
-            await message.answer("❌ Введите корректное имя сервера")
+
+        from shop_bot.data_manager.database import get_all_hosts
+        hosts = get_all_hosts()
+        current_host = key_data.get('host_name')
+        if current_host:
+            hosts = [h for h in hosts if h.get('host_name') != current_host]
+
+        if not hosts:
+            await callback.message.answer("Нет доступных серверов для переноса.")
             return
-        ok = update_key_host(key_id, new_host)
-        if ok:
-            await message.answer("✅ Сервер обновлён")
-        else:
-            await message.answer("❌ Не удалось обновить сервер")
-        await state.clear()
+
+        await state.update_data(edit_key_id=key_id)
+        await callback.message.edit_text(
+            f"Выберите новый сервер для ключа #{key_id}:",
+            reply_markup=keyboards.create_host_selection_keyboard(hosts, action=f"switch_{key_id}")
+        )
 
     # --- Начисление реф. баланса: удалено ---
 

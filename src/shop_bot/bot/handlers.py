@@ -1684,7 +1684,13 @@ def get_user_router() -> Router:
 
         key_data = get_key_by_id(key_id)
 
-        if not key_data or key_data.get('user_id') != callback.from_user.id:
+        if not key_data:
+            await callback.answer("Ключ не найден.", show_alert=True)
+            return
+
+        # Проверяем что это владелец ключа или админ
+        is_owner = key_data.get('user_id') == callback.from_user.id
+        if not is_owner and not is_admin(callback.from_user.id):
             await callback.answer("Ключ не найден.", show_alert=True)
             return
 
