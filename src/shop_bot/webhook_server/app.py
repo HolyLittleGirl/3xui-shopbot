@@ -104,8 +104,24 @@ def create_webhook_app(bot_controller_instance):
     flask_app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     flask_app.jinja_env.auto_reload = True
     
-    # SECRET_KEY из окружения или сгенерированный на лету (без хардкода)
-    flask_app.config['SECRET_KEY'] = os.getenv('SHOPBOT_SECRET_KEY') or secrets.token_hex(32)
+    # SECRET_KEY: из окружения > файл на диске > генерация (сохраняется)
+    _env_key = os.getenv('SHOPBOT_SECRET_KEY')
+    if _env_key:
+        secret_key = _env_key
+    else:
+        _key_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(app_file_path)))), 'data', '.secret_key')
+        if os.path.isfile(_key_file):
+            with open(_key_file, 'r') as _f:
+                secret_key = _f.read().strip()
+        else:
+            secret_key = secrets.token_hex(32)
+            try:
+                os.makedirs(os.path.dirname(_key_file), exist_ok=True)
+                with open(_key_file, 'w') as _f:
+                    _f.write(secret_key)
+            except Exception as _e:
+                logger.warning(f"Не удалось сохранить SECRET_KEY в файл: {_e}")
+    flask_app.config['SECRET_KEY'] = secret_key
     from datetime import timedelta
     flask_app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
