@@ -65,8 +65,11 @@ class SupportBotController:
             }
 
         try:
-            session = AiohttpSession(timeout=90)
-            self._bot = Bot(token=token, session=session, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+            self._bot = Bot(
+                token=token,
+                session=AiohttpSession(timeout=120),
+                default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+            )
             self._dp = Dispatcher()
             
             router = get_support_router()

@@ -66,8 +66,11 @@ class BotController:
 
         try:
             # Увеличиваем таймаут для работы через блокировки в РФ
-            session = AiohttpSession(timeout=90)
-            self._bot = Bot(token=token, session=session, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+            self._bot = Bot(
+                token=token,
+                session=AiohttpSession(timeout=120),
+                default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+            )
             self._dp = Dispatcher()
 
             # Вешаем BanMiddleware на уровни событий, где доступен event_from_user
