@@ -4,7 +4,6 @@ import logging
 from yookassa import Configuration
 from aiogram import Bot, Dispatcher, Router
 from aiogram.client.default import DefaultBotProperties
-from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode 
 
 from shop_bot.data_manager import database
@@ -65,10 +64,8 @@ class BotController:
             }
 
         try:
-            # Увеличиваем таймаут для работы через блокировки в РФ
             self._bot = Bot(
                 token=token,
-                session=AiohttpSession(timeout=120),
                 default=DefaultBotProperties(parse_mode=ParseMode.HTML)
             )
             self._dp = Dispatcher()
